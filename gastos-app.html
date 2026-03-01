@@ -120,7 +120,6 @@ body {
   margin: 8px 16px 12px;
   background: var(--bg2);
   border-radius: var(--radius-sm);
-  overflow: hidden;
 }
 .month-arrow {
   width: 44px; height: 44px;
@@ -488,9 +487,10 @@ select.sheet-input { appearance: none; }
   background: var(--bg2); border-radius: var(--radius); padding: 16px;
   cursor: pointer; transition: opacity 0.15s;
   position: relative; overflow: hidden;
+  border: 1.5px solid transparent;
 }
 .rep-month-card:active { opacity: 0.7; }
-.rep-month-card.current { outline: 1.5px solid var(--accent); }
+.rep-month-card.current { border-color: var(--accent); }
 .rep-month-card::before { content:''; position:absolute; top:-20px; right:-20px; width:80px; height:80px; background:radial-gradient(circle,rgba(200,240,96,0.08) 0%,transparent 70%); pointer-events:none; }
 .rep-month-name { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 8px; }
 .rep-month-total { font-family: var(--mono); font-size: 22px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
@@ -1514,40 +1514,217 @@ async function submitGasto(){
 }
 
 // ═══════════════════════════════════
-// CONFIG
+// CONFIG & NOTIFICACIONES
 // ═══════════════════════════════════
+
+// Default config structure
+const CONFIG_KEY = 'gastosapp_config_v1';
+
+function loadConfig() {
+  try { return JSON.parse(localStorage.getItem(CONFIG_KEY)) || {}; } catch { return {}; }
+}
+function saveConfig(cfg) {
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+}
+
+// Build config screen
 (()=>{
-  const cl=document.getElementById('configList');
-  ALL_TARJETAS.forEach((name,i)=>{
-    const c=CARD_META[name]||{color:'#9090a0',label:'TARJETA'};
-    cl.innerHTML+=`<div class="config-card">
-      <div class="config-top">
-        <div class="config-name">${name}</div>
-        <div class="tarjeta-badge" style="background:${c.color}22;color:${c.color};font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px">${c.label}</div>
+  const cl = document.getElementById('configList');
+
+  // ── Sección notificaciones globales ──
+  cl.innerHTML += `
+    <div class="config-card">
+      <div class="config-top" style="margin-bottom:6px">
+        <div class="config-name">Notificaciones</div>
+        <div id="notifStatusBadge" style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:var(--bg3);color:var(--text3)">—</div>
+      </div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.5">
+        Las notificaciones se programan cada vez que abrís la app. Asegurate de abrirla al menos una vez por día.
       </div>
       <div class="config-fields">
-        <div class="config-field-row">
-          <div><div class="cfg-label">Día de cierre</div><input class="config-input" type="number" min="1" max="31" placeholder="Ej: 5" id="cfg-c-${i}"></div>
-          <div><div class="cfg-label">Días hasta vence</div><input class="config-input" type="number" min="1" max="30" placeholder="Ej: 10" id="cfg-v-${i}"></div>
+        <div>
+          <div class="cfg-label">Hora de notificación</div>
+          <input class="config-input" type="time" id="cfg-hora" value="12:00">
         </div>
-        <div class="config-field-row">
-          <div><div class="cfg-label">Límite ($)</div><input class="config-input" type="number" placeholder="Opcional" id="cfg-l-${i}"></div>
-          <div><div class="cfg-label">Avisar (días antes)</div><input class="config-input" type="number" min="1" max="10" value="3" id="cfg-a-${i}"></div>
+        <div style="margin-top:10px">
+          <div class="cfg-label">Avisar días antes del cierre/vencimiento</div>
+          <input class="config-input" type="number" min="1" max="10" id="cfg-diasAntes" value="3" style="max-width:100px">
         </div>
       </div>
       <div class="notif-row">
-        <div class="notif-label">🔔 Notificaciones de cierre</div>
-        <div class="toggle on" id="tog-${i}" onclick="toggleNotif(${i})"><div class="toggle-thumb"></div></div>
+        <div class="notif-label">🔔 Resumen semanal (domingos)</div>
+        <div class="toggle on" id="tog-resumen"><div class="toggle-thumb"></div></div>
       </div>
     </div>`;
+
+  // ── Tarjetas ──
+  ALL_TARJETAS.forEach((name, i) => {
+    const c = CARD_META[name] || {color:'#9090a0', label:'TARJETA'};
+    cl.innerHTML += `
+      <div class="config-card">
+        <div class="config-top">
+          <div class="config-name">${name}</div>
+          <div class="tarjeta-badge" style="background:${c.color}22;color:${c.color};font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px">${c.label}</div>
+        </div>
+        <div class="config-fields">
+          <div class="config-field-row">
+            <div><div class="cfg-label">Día de cierre</div><input class="config-input" type="number" min="1" max="31" placeholder="Ej: 5" id="cfg-c-${i}"></div>
+            <div><div class="cfg-label">Día de vencimiento</div><input class="config-input" type="number" min="1" max="31" placeholder="Ej: 15" id="cfg-v-${i}"></div>
+          </div>
+        </div>
+        <div class="notif-row">
+          <div class="notif-label">🔔 Notificar esta tarjeta</div>
+          <div class="toggle on" id="tog-${i}" onclick="document.getElementById('tog-${i}').classList.toggle('on')"><div class="toggle-thumb"></div></div>
+        </div>
+      </div>`;
   });
-  cl.innerHTML+=`<button class="save-btn" onclick="showToast('✓ Configuración guardada')">Guardar configuración</button>`;
+
+  cl.innerHTML += `<button class="save-btn" onclick="guardarConfig()">Guardar configuración</button>`;
+
+  // Load saved values
+  const cfg = loadConfig();
+  if (cfg.hora)       document.getElementById('cfg-hora').value = cfg.hora;
+  if (cfg.diasAntes)  document.getElementById('cfg-diasAntes').value = cfg.diasAntes;
+  if (cfg.resumen === false) document.getElementById('tog-resumen').classList.remove('on');
+
+  ALL_TARJETAS.forEach((name, i) => {
+    const tc = cfg.tarjetas?.[name] || {};
+    if (tc.cierre)     document.getElementById(`cfg-c-${i}`).value = tc.cierre;
+    if (tc.vence)      document.getElementById(`cfg-v-${i}`).value  = tc.vence;
+    if (tc.notif === false) document.getElementById(`tog-${i}`).classList.remove('on');
+  });
+
+  updateNotifStatusBadge();
 })();
-function toggleNotif(i){
-  const t=document.getElementById('tog-'+i); t.classList.toggle('on');
-  if(t.classList.contains('on')&&'Notification' in window)
-    Notification.requestPermission().then(p=>showToast(p==='granted'?'✓ Notificaciones activadas':'⚠ Permiso denegado'));
+
+function updateNotifStatusBadge() {
+  const badge = document.getElementById('notifStatusBadge');
+  if (!badge) return;
+  if (!('Notification' in window)) {
+    badge.textContent = 'No soportado'; badge.style.color = 'var(--text3)'; return;
+  }
+  const p = Notification.permission;
+  if (p === 'granted')  { badge.textContent = '✓ Activas';   badge.style.background = 'rgba(200,240,96,0.15)'; badge.style.color = 'var(--accent)'; }
+  if (p === 'denied')   { badge.textContent = '✗ Bloqueadas'; badge.style.background = 'rgba(255,69,58,0.12)';  badge.style.color = 'var(--red)'; }
+  if (p === 'default')  { badge.textContent = 'Sin permiso';  badge.style.background = 'var(--bg3)';            badge.style.color = 'var(--text3)'; }
 }
+
+async function guardarConfig() {
+  // Request permission if not granted
+  if ('Notification' in window && Notification.permission === 'default') {
+    const p = await Notification.requestPermission();
+    updateNotifStatusBadge();
+    if (p !== 'granted') { showToast('⚠ Permiso de notificaciones denegado'); return; }
+  }
+
+  const cfg = {
+    hora:       document.getElementById('cfg-hora').value || '12:00',
+    diasAntes:  parseInt(document.getElementById('cfg-diasAntes').value) || 3,
+    resumen:    document.getElementById('tog-resumen').classList.contains('on'),
+    tarjetas:   {}
+  };
+
+  ALL_TARJETAS.forEach((name, i) => {
+    cfg.tarjetas[name] = {
+      cierre: parseInt(document.getElementById(`cfg-c-${i}`).value) || null,
+      vence:  parseInt(document.getElementById(`cfg-v-${i}`).value) || null,
+      notif:  document.getElementById(`tog-${i}`).classList.contains('on'),
+    };
+  });
+
+  saveConfig(cfg);
+  programarNotificaciones(cfg);
+  showToast('✓ Configuración guardada');
+}
+
+// ── Programar notificaciones ──
+let _notifTimers = [];
+
+function programarNotificaciones(cfg) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  // Clear previous timers
+  _notifTimers.forEach(t => clearTimeout(t));
+  _notifTimers = [];
+
+  const ahora = new Date();
+  const [hh, mm] = (cfg.hora || '12:00').split(':').map(Number);
+
+  // Helper: ms until next occurrence of a weekday+time (0=Sun)
+  function msHasta(targetDay, h, m) {
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    let diff = (targetDay - d.getDay() + 7) % 7;
+    if (diff === 0 && d <= ahora) diff = 7; // already passed today
+    d.setDate(d.getDate() + diff);
+    return d - ahora;
+  }
+
+  // Helper: ms until today at h:m (or tomorrow if passed)
+  function msHastaHoy(h, m) {
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    if (d <= ahora) d.setDate(d.getDate() + 1);
+    return d - ahora;
+  }
+
+  function notif(titulo, cuerpo, delay) {
+    const t = setTimeout(() => {
+      new Notification(titulo, { body: cuerpo, icon: 'icon-192.png', badge: 'icon-192.png' });
+    }, delay);
+    _notifTimers.push(t);
+  }
+
+  const hoy = ahora.getDate();
+  const mesNombre = MESES[currentMesIdx];
+  const diasAntes = cfg.diasAntes || 3;
+
+  // ── Cierre y vencimiento por tarjeta ──
+  ALL_TARJETAS.forEach(name => {
+    const tc = cfg.tarjetas?.[name];
+    if (!tc || !tc.notif) return;
+
+    if (tc.cierre) {
+      const diff = tc.cierre - hoy;
+      if (diff >= 0 && diff <= diasAntes) {
+        const msg = diff === 0
+          ? `Hoy cierra ${name}. Revisá los gastos del mes.`
+          : `${name} cierra en ${diff} día${diff>1?'s':''} (día ${tc.cierre}).`;
+        notif(`🗓 Cierre de tarjeta`, msg, msHastaHoy(hh, mm));
+      }
+    }
+
+    if (tc.vence) {
+      const diff = tc.vence - hoy;
+      if (diff >= 0 && diff <= diasAntes) {
+        const msg = diff === 0
+          ? `Hoy vence ${name}. ¡No olvides el pago!`
+          : `${name} vence en ${diff} día${diff>1?'s':''} (día ${tc.vence}).`;
+        notif(`💳 Vencimiento de tarjeta`, msg, msHastaHoy(hh, mm) + 60000);
+      }
+    }
+  });
+
+  // ── Resumen semanal — domingos ──
+  if (cfg.resumen) {
+    const rows = (DATA_BY_MES[mesNombre] || []).filter(r => r.quien === 'Choni');
+    const totalMes = rows.reduce((s,r) => s + (r.imp>0?r.imp:0), 0);
+    const txns = rows.length;
+    const body = `${mesNombre}: $${fmt(totalMes)} en ${txns} movimientos. ¡Buen domingo!`;
+    notif('📊 Resumen semanal', body, msHasta(0, hh, mm)); // 0 = domingo
+  }
+}
+
+// Auto-schedule on load and on app visibility
+function intentarProgramar() {
+  const cfg = loadConfig();
+  if (Object.keys(cfg).length && 'Notification' in window && Notification.permission === 'granted') {
+    programarNotificaciones(cfg);
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') intentarProgramar();
+});
 
 // ═══════════════════════════════════
 // NAV
@@ -1585,9 +1762,12 @@ async function initReportes() {
   document.getElementById('rLabel').textContent = '2026';
   document.getElementById('rSub').textContent = `${mesesConDatos.length} mes${mesesConDatos.length>1?'es':''} con datos`;
 
-  // Default selected month = last available
-  reportesMesIdx = MESES.indexOf(mesesConDatos[mesesConDatos.length - 1]);
-  reportesMeses  = mesesConDatos;
+  // Default = current month if available, otherwise last available
+  const defaultMes = MESES[currentMesIdx];
+  reportesMesIdx = mesesConDatos.includes(defaultMes)
+    ? currentMesIdx
+    : MESES.indexOf(mesesConDatos[mesesConDatos.length - 1]);
+  reportesMeses = mesesConDatos;
   renderReportes(mesesConDatos, reportesMesIdx);
 }
 
@@ -1627,16 +1807,14 @@ function getMesByCategoria(mes) {
 function drawSparkline(el, values) {
   const w = 48, h = 24;
   const max = Math.max(...values, 1);
-  const min = 0;
   const pts = values.map((v, i) => {
     const x = values.length === 1 ? w/2 : (i / (values.length-1)) * w;
-    const y = h - ((v - min) / (max - min)) * (h - 4) - 2;
+    const y = h - (v / max) * (h - 4) - 2;
     return `${x},${y}`;
   }).join(' ');
-  const trend = values.length > 1 ? values[values.length-1] - values[values.length-2] : 0;
-  const color = trend > 0 ? '#ff453a' : trend < 0 ? '#c8f060' : '#606070';
+  const color = '#c8f060';
   el.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
     <circle cx="${pts.split(' ').pop().split(',')[0]}" cy="${pts.split(' ').pop().split(',')[1]}" r="2.5" fill="${color}"/>
   </svg>`;
 }
@@ -1679,14 +1857,16 @@ function renderReportes(meses, selIdx) {
   );
 
   if (tarjetasConDatos.length) {
+    const FONT = `-apple-system,'SF Pro Display','Helvetica Neue',sans-serif`;
+    const MONO = `'SF Mono','Courier New',monospace`;
     html += `<div class="rep-section">
       <div class="rep-section-title">Por tarjeta</div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 16px">
-      <table style="width:100%;border-collapse:collapse;min-width:${120 + meses.length*68 + 56}px">
+      <table style="width:100%;border-collapse:collapse;min-width:${120 + meses.length*68 + 56}px;font-family:${FONT}">
         <thead>
           <tr>
-            <th style="text-align:left;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;padding:10px 0 10px 14px;border-bottom:0.5px solid var(--separator)">Tarjeta</th>
-            ${meses.map((m,i)=>`<th style="text-align:right;font-size:11px;font-weight:600;color:${m===selMes?'var(--accent)':'var(--text3)'};text-transform:uppercase;letter-spacing:0.04em;padding:10px 8px 10px 0;border-bottom:0.5px solid var(--separator);white-space:nowrap">${m.slice(0,3)}</th>`).join('')}
+            <th style="text-align:left;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;padding:10px 0 10px 14px;border-bottom:0.5px solid var(--separator);font-family:${FONT}">Tarjeta</th>
+            ${meses.map((m,i)=>`<th style="text-align:right;font-size:11px;font-weight:600;color:${m===selMes?'var(--accent)':'var(--text3)'};text-transform:uppercase;letter-spacing:0.04em;padding:10px 8px 10px 0;border-bottom:0.5px solid var(--separator);white-space:nowrap;font-family:${FONT}">${m.slice(0,3)}</th>`).join('')}
             <th style="width:56px;border-bottom:0.5px solid var(--separator)"></th>
           </tr>
         </thead>
@@ -1696,16 +1876,16 @@ function renderReportes(meses, selIdx) {
       const vals = meses.map(m => getMesByTarjeta(m)[t] || 0);
       const c = CARD_META[t] || {color:'#9090a0', label:'TARJETA'};
       html += `<tr>
-        <td style="padding:12px 0 12px 14px;border-bottom:0.5px solid var(--separator)">
+        <td style="padding:12px 0 12px 14px;border-bottom:0.5px solid var(--separator);font-family:${FONT}">
           <div style="display:flex;align-items:center;gap:7px">
             <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c.color};flex-shrink:0"></span>
             <div>
-              <div style="font-size:14px;font-weight:500">${t}</div>
-              <div style="font-size:10px;color:var(--text3)">${c.label}</div>
+              <div style="font-size:14px;font-weight:500;font-family:${FONT}">${t}</div>
+              <div style="font-size:10px;color:var(--text3);font-family:${FONT}">${c.label}</div>
             </div>
           </div>
         </td>
-        ${vals.map((v,i)=>`<td style="text-align:right;padding:12px 8px 12px 0;font-family:var(--mono);font-size:12px;font-weight:${meses[i]===selMes?'600':'400'};color:${v===0?'var(--text3)':meses[i]===selMes?'var(--text)':'var(--text2)'};border-bottom:0.5px solid var(--separator)">${v>0?fmtCompact(v):'—'}</td>`).join('')}
+        ${vals.map((v,i)=>`<td style="text-align:right;padding:12px 8px 12px 0;font-family:${MONO};font-size:12px;font-weight:${meses[i]===selMes?'600':'400'};color:${v===0?'var(--text3)':meses[i]===selMes?'var(--text)':'var(--text2)'};border-bottom:0.5px solid var(--separator)">${v>0?fmtCompact(v):'—'}</td>`).join('')}
         <td style="padding:12px 14px 12px 0;border-bottom:0.5px solid var(--separator)">
           <div class="rep-sparkline" id="spark-${t.replace(/\s/g,'_')}"></div>
         </td>
@@ -1715,8 +1895,8 @@ function renderReportes(meses, selIdx) {
     // Fila totales
     const totales = meses.map(m => getMesTotals(m));
     html += `<tr style="background:rgba(200,240,96,0.04)">
-      <td style="padding:12px 0 12px 14px;font-size:14px;font-weight:700">Total</td>
-      ${totales.map((v,i)=>`<td style="text-align:right;padding:12px 8px 12px 0;font-family:var(--mono);font-size:12px;font-weight:700;color:${meses[i]===selMes?'var(--accent)':'var(--text)'}">${fmtCompact(v)}</td>`).join('')}
+      <td style="padding:12px 0 12px 14px;font-size:14px;font-weight:700;font-family:${FONT}">Total</td>
+      ${totales.map((v,i)=>`<td style="text-align:right;padding:12px 8px 12px 0;font-family:${MONO};font-size:12px;font-weight:700;color:${meses[i]===selMes?'var(--accent)':'var(--text)'}">${fmtCompact(v)}</td>`).join('')}
       <td style="padding:12px 14px 12px 0">
         <div class="rep-sparkline" id="spark-TOTAL"></div>
       </td>
@@ -1725,27 +1905,28 @@ function renderReportes(meses, selIdx) {
     html += `</tbody></table></div></div>`;
   }
 
-  // ── SECCIÓN 3: Top categorías — tabla igual a Por tarjeta ──
+  // ── SECCIÓN 3: Top categorías — TODAS incluyendo gastos fijos ──
   const catConDatos = ALL_CATS.filter(cat =>
-    cat !== 'Gastos fijos' && meses.some(m => (getMesByCategoria(m)[cat] || 0) > 0)
+    meses.some(m => (getMesByCategoria(m)[cat] || 0) > 0)
   );
-  // Sort by selected month value desc
   const catSorted = catConDatos
     .map(cat => ({ cat, val: getMesByCategoria(selMes)[cat]||0 }))
     .filter(x => x.val > 0)
     .sort((a,b) => b.val - a.val)
-    .slice(0, 5)
     .map(x => x.cat);
+
+  const FONT = `-apple-system,'SF Pro Display','Helvetica Neue',sans-serif`;
+  const MONO = `'SF Mono','Courier New',monospace`;
 
   if (catSorted.length) {
     html += `<div class="rep-section">
       <div class="rep-section-title">Top categorías</div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 16px">
-      <table style="width:100%;border-collapse:collapse;min-width:${120 + meses.length*68 + 56}px">
+      <table style="width:100%;border-collapse:collapse;min-width:${120 + meses.length*68 + 56}px;font-family:${FONT}">
         <thead>
           <tr>
-            <th style="text-align:left;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;padding:10px 0 10px 14px;border-bottom:0.5px solid var(--separator)">Categoría</th>
-            ${meses.map(m=>`<th style="text-align:right;font-size:11px;font-weight:600;color:${m===selMes?'var(--accent)':'var(--text3)'};text-transform:uppercase;letter-spacing:0.04em;padding:10px 8px 10px 0;border-bottom:0.5px solid var(--separator);white-space:nowrap">${m.slice(0,3)}</th>`).join('')}
+            <th style="text-align:left;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;padding:10px 0 10px 14px;border-bottom:0.5px solid var(--separator);font-family:${FONT}">Categoría</th>
+            ${meses.map(m=>`<th style="text-align:right;font-size:11px;font-weight:600;color:${m===selMes?'var(--accent)':'var(--text3)'};text-transform:uppercase;letter-spacing:0.04em;padding:10px 8px 10px 0;border-bottom:0.5px solid var(--separator);white-space:nowrap;font-family:${FONT}">${m.slice(0,3)}</th>`).join('')}
             <th style="width:56px;border-bottom:0.5px solid var(--separator)"></th>
           </tr>
         </thead>
@@ -1754,14 +1935,14 @@ function renderReportes(meses, selIdx) {
     catSorted.forEach((cat, i) => {
       const vals = meses.map(m => getMesByCategoria(m)[cat] || 0);
       html += `<tr>
-        <td style="padding:12px 0 12px 14px;border-bottom:${i<catSorted.length-1?'0.5px solid var(--separator)':'none'}">
+        <td style="padding:12px 0 12px 14px;border-bottom:${i<catSorted.length-1?'0.5px solid var(--separator)':'none'};font-family:${FONT}">
           <div style="display:flex;align-items:center;gap:7px">
-            <span style="font-size:10px;font-weight:700;color:var(--text3);font-family:var(--mono)">${i+1}</span>
+            <span style="font-size:10px;font-weight:700;color:var(--text3);font-family:${MONO}">${i+1}</span>
             <span style="font-size:18px">${CAT_ICONS[cat]||'📦'}</span>
-            <div style="font-size:14px;font-weight:500">${cat}</div>
+            <div style="font-size:14px;font-weight:500;font-family:${FONT}">${cat}</div>
           </div>
         </td>
-        ${vals.map((v,mi)=>`<td style="text-align:right;padding:12px 8px 12px 0;font-family:var(--mono);font-size:12px;font-weight:${meses[mi]===selMes?'600':'400'};color:${v===0?'var(--text3)':meses[mi]===selMes?'var(--text)':'var(--text2)'};border-bottom:${i<catSorted.length-1?'0.5px solid var(--separator)':'none'}">${v>0?fmtCompact(v):'—'}</td>`).join('')}
+        ${vals.map((v,mi)=>`<td style="text-align:right;padding:12px 8px 12px 0;font-family:${MONO};font-size:12px;font-weight:${meses[mi]===selMes?'600':'400'};color:${v===0?'var(--text3)':meses[mi]===selMes?'var(--text)':'var(--text2)'};border-bottom:${i<catSorted.length-1?'0.5px solid var(--separator)':'none'}">${v>0?fmtCompact(v):'—'}</td>`).join('')}
         <td style="padding:12px 14px 12px 0;border-bottom:${i<catSorted.length-1?'0.5px solid var(--separator)':'none'}">
           <div class="rep-sparkline" id="spark-cat-${cat.replace(/\s/g,'_')}"></div>
         </td>
@@ -1903,6 +2084,7 @@ async function deleteGasto(){
 // INIT
 // ═══════════════════════════════════
 loadMes(currentMesIdx);
+intentarProgramar();
 </script>
 </body>
 </html>
