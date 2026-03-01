@@ -475,6 +475,67 @@ select.sheet-input { appearance: none; }
 
 /* CAT ITEM tappable active state */
 .cat-item:active { background: var(--bg2); border-radius: var(--radius-xs); }
+
+/* REPORTES */
+.rep-section { margin: 0 0 24px; }
+.rep-section-title { font-size: 20px; font-weight: 700; letter-spacing: -0.03em; padding: 0 16px; margin-bottom: 12px; }
+
+/* Comparativa cards — horizontal scroll */
+.rep-months-scroll { display: flex; gap: 10px; padding: 0 16px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+.rep-months-scroll::-webkit-scrollbar { display: none; }
+.rep-month-card {
+  flex-shrink: 0; width: 140px; scroll-snap-align: start;
+  background: var(--bg2); border-radius: var(--radius); padding: 16px;
+  cursor: pointer; transition: opacity 0.15s;
+  position: relative; overflow: hidden;
+}
+.rep-month-card:active { opacity: 0.7; }
+.rep-month-card.current { outline: 1.5px solid var(--accent); }
+.rep-month-card::before { content:''; position:absolute; top:-20px; right:-20px; width:80px; height:80px; background:radial-gradient(circle,rgba(200,240,96,0.08) 0%,transparent 70%); pointer-events:none; }
+.rep-month-name { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 8px; }
+.rep-month-total { font-family: var(--mono); font-size: 22px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+.rep-month-prefix { font-size: 13px; color: var(--text2); font-weight: 400; }
+.rep-month-delta { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 12px; font-weight: 600; }
+.rep-month-delta.up { color: var(--red); }
+.rep-month-delta.down { color: var(--accent); }
+.rep-month-delta.neutral { color: var(--text3); }
+.rep-month-txns { font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+/* Tarjeta evolution table */
+.rep-table { margin: 0 16px; background: var(--bg2); border-radius: var(--radius); overflow: hidden; }
+.rep-table-header { display: flex; padding: 10px 14px; border-bottom: 0.5px solid var(--separator); }
+.rep-table-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.04em; }
+.rep-table-row { display: flex; align-items: center; padding: 12px 14px; border-bottom: 0.5px solid var(--separator); }
+.rep-table-row:last-child { border-bottom: none; }
+.rep-table-name { flex: 1; font-size: 14px; font-weight: 500; min-width: 0; }
+.rep-table-name-sub { font-size: 10px; color: var(--text3); margin-top: 1px; font-weight: 400; }
+.rep-table-values { display: flex; gap: 4px; align-items: center; }
+.rep-table-cell { font-family: var(--mono); font-size: 12px; color: var(--text2); text-align: right; width: 72px; }
+.rep-table-cell.current { color: var(--text); font-weight: 600; }
+.rep-table-cell.zero { color: var(--text3); }
+.rep-sparkline { width: 48px; height: 24px; margin-left: 8px; }
+
+/* Tendencias */
+.rep-tendencias { margin: 0 16px; display: flex; flex-direction: column; gap: 8px; }
+.rep-tend-card {
+  background: var(--bg2); border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.rep-tend-icon { font-size: 26px; flex-shrink: 0; }
+.rep-tend-info { flex: 1; min-width: 0; }
+.rep-tend-name { font-size: 15px; font-weight: 500; letter-spacing: -0.01em; }
+.rep-tend-detail { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.rep-tend-delta { text-align: right; flex-shrink: 0; }
+.rep-tend-pct { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; font-family: var(--mono); }
+.rep-tend-pct.up { color: var(--red); }
+.rep-tend-pct.down { color: var(--accent); }
+.rep-tend-pct.new { color: #0a84ff; }
+.rep-tend-arrow { font-size: 11px; margin-top: 1px; }
+.rep-tend-arr.up { color: var(--red); }
+.rep-tend-arr.down { color: var(--accent); }
+
+.rep-loading { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 14px; }
 </style>
 </head>
 <body>
@@ -641,15 +702,15 @@ select.sheet-input { appearance: none; }
 <!-- REPORTES -->
 <div class="screen" id="screen-reportes">
   <div class="header">
-    <div class="header-label" id="rLabel">Febrero 2026</div>
+    <div class="header-label" id="rLabel">2026</div>
     <div class="header-title">Reportes</div>
-    <div class="header-sub">Análisis y tendencias</div>
+    <div class="header-sub" id="rSub">Cargando datos...</div>
   </div>
-  <div id="reportesMesSelector"></div>
-  <div class="empty-state">
-    <div class="empty-state-icon">📊</div>
-    <div class="empty-state-title">Próximamente</div>
-    <div class="empty-state-sub">Acá van a aparecer gráficos de tendencias, comparativas entre meses y análisis por categoría.</div>
+  <div id="reportesContent">
+    <div class="empty-state">
+      <div class="spinner" style="margin:0 auto 16px"></div>
+      <div class="empty-state-sub">Cargando meses...</div>
+    </div>
   </div>
 </div>
 
@@ -1498,6 +1559,240 @@ function setScreen(id,btn){
   if(btn) btn.classList.add('active');
   window.scrollTo(0,0);
   if(id==='gastos') renderGastos();
+  if(id==='reportes') initReportes();
+}
+
+// ═══════════════════════════════════
+// REPORTES
+// ═══════════════════════════════════
+let reportesLoaded = false;
+
+async function initReportes() {
+  // Detect which months have data — try to load all months up to current
+  const today = new Date();
+  const upTo = today.getMonth(); // 0-based, so Febrero=1
+  const mesesToLoad = MESES.slice(0, upTo + 1);
+
+  // Load all months in parallel (uses cache if already loaded)
+  document.getElementById('rSub').textContent = 'Cargando datos...';
+  await Promise.all(mesesToLoad.map(m => fetchMes(m)));
+
+  // Filter to months that actually have data
+  const mesesConDatos = mesesToLoad.filter(m => (DATA_BY_MES[m]||[]).length > 0);
+  if (!mesesConDatos.length) {
+    document.getElementById('reportesContent').innerHTML =
+      `<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-title">Sin datos</div><div class="empty-state-sub">No se encontraron meses con gastos cargados.</div></div>`;
+    return;
+  }
+
+  document.getElementById('rLabel').textContent = '2026';
+  document.getElementById('rSub').textContent = `${mesesConDatos.length} mes${mesesConDatos.length>1?'es':''} con datos`;
+  renderReportes(mesesConDatos);
+}
+
+function fmtCompact(n) {
+  if (n >= 1000000) return '$' + (n/1000000).toFixed(1).replace(/\.0$/,'') + 'M';
+  if (n >= 1000)    return '$' + (n/1000).toFixed(0) + 'k';
+  return '$' + fmt(n);
+}
+
+function getMesTotals(mes) {
+  const rows = (DATA_BY_MES[mes] || []).filter(r => r.quien === 'Choni');
+  return rows.reduce((s,r) => s + (r.imp > 0 ? r.imp : 0), 0);
+}
+
+function getMesByTarjeta(mes) {
+  const rows = (DATA_BY_MES[mes] || []).filter(r => r.quien === 'Choni');
+  const map = {};
+  rows.forEach(r => {
+    if (r.imp <= 0) return;
+    if (!map[r.tarjeta]) map[r.tarjeta] = 0;
+    map[r.tarjeta] += r.imp;
+  });
+  return map;
+}
+
+function getMesByCategoria(mes) {
+  const rows = (DATA_BY_MES[mes] || []).filter(r => r.quien === 'Choni');
+  const map = {};
+  rows.forEach(r => {
+    if (r.imp <= 0) return;
+    if (!map[r.cat]) map[r.cat] = 0;
+    map[r.cat] += r.imp;
+  });
+  return map;
+}
+
+function drawSparkline(el, values) {
+  const w = 48, h = 24;
+  const max = Math.max(...values, 1);
+  const min = 0;
+  const pts = values.map((v, i) => {
+    const x = values.length === 1 ? w/2 : (i / (values.length-1)) * w;
+    const y = h - ((v - min) / (max - min)) * (h - 4) - 2;
+    return `${x},${y}`;
+  }).join(' ');
+  const trend = values.length > 1 ? values[values.length-1] - values[values.length-2] : 0;
+  const color = trend > 0 ? '#ff453a' : trend < 0 ? '#c8f060' : '#606070';
+  el.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${pts.split(' ').pop().split(',')[0]}" cy="${pts.split(' ').pop().split(',')[1]}" r="2.5" fill="${color}"/>
+  </svg>`;
+}
+
+function renderReportes(meses) {
+  const mesActual = MESES[currentMesIdx];
+  let html = '';
+
+  // ── SECCIÓN 1: Todos los meses ──
+  html += `<div class="rep-section">
+    <div class="rep-section-title">Comparativa mensual</div>
+    <div class="rep-months-scroll">`;
+
+  meses.forEach((mes, i) => {
+    const total = getMesTotals(mes);
+    const prev  = i > 0 ? getMesTotals(meses[i-1]) : null;
+    const delta = prev ? ((total - prev) / prev * 100) : null;
+    const deltaClass = delta === null ? 'neutral' : delta > 5 ? 'up' : delta < -5 ? 'down' : 'neutral';
+    const deltaSign  = delta > 0 ? '+' : '';
+    const txns = (DATA_BY_MES[mes]||[]).filter(r=>r.quien==='Choni').length;
+    const isCurrent = mes === mesActual;
+    const navIdx = MESES.indexOf(mes);
+
+    html += `<div class="rep-month-card${isCurrent?' current':''}" onclick="navegarDesdeReporte(${navIdx})">
+      <div class="rep-month-name">${mes}</div>
+      <div class="rep-month-total">${fmtCompact(total)}</div>
+      ${delta !== null
+        ? `<div class="rep-month-delta ${deltaClass}">
+             ${deltaClass==='up'?'↑':deltaClass==='down'?'↓':'·'}
+             ${deltaSign}${Math.round(delta)}% vs ${meses[i-1].slice(0,3)}
+           </div>`
+        : `<div class="rep-month-delta neutral">Primer mes</div>`}
+      <div class="rep-month-txns">${txns} movimientos</div>
+    </div>`;
+  });
+
+  html += `</div></div>`;
+
+  // ── SECCIÓN 2: Evolución por tarjeta — todos los meses disponibles ──
+  const tarjetasConDatos = ALL_TARJETAS.filter(t =>
+    meses.some(m => (getMesByTarjeta(m)[t] || 0) > 0)
+  );
+
+  if (tarjetasConDatos.length) {
+    const mesesTabla = meses; // todos
+
+    html += `<div class="rep-section">
+      <div class="rep-section-title">Por tarjeta</div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+      <div class="rep-table" style="min-width:${180 + mesesTabla.length * 72}px">
+        <div class="rep-table-header">
+          <div class="rep-table-label" style="flex:1;min-width:120px">Tarjeta</div>
+          ${mesesTabla.map((m,i)=>`<div class="rep-table-label" style="width:72px;text-align:right;${i===mesesTabla.length-1?'color:var(--text2)':''}">${m.slice(0,3)}</div>`).join('')}
+          <div style="width:56px"></div>
+        </div>`;
+
+    tarjetasConDatos.forEach(t => {
+      const vals = mesesTabla.map(m => getMesByTarjeta(m)[t] || 0);
+      const c = CARD_META[t] || {color:'#9090a0', label:'TARJETA'};
+      html += `<div class="rep-table-row">
+        <div class="rep-table-name" style="flex:1;min-width:120px">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c.color};margin-right:7px;vertical-align:middle;flex-shrink:0"></span>${t}
+          <div class="rep-table-name-sub">${c.label}</div>
+        </div>
+        ${vals.map((v,i)=>`<div class="rep-table-cell${i===vals.length-1?' current':''}${v===0?' zero':''}" style="width:72px">${v>0?fmtCompact(v):'—'}</div>`).join('')}
+        <div class="rep-sparkline" id="spark-${t.replace(/\s/g,'_')}"></div>
+      </div>`;
+    });
+
+    // Fila de totales
+    const totalesPorMes = mesesTabla.map(m => getMesTotals(m));
+    html += `<div class="rep-table-row" style="border-top:1px solid var(--separator);background:rgba(200,240,96,0.04)">
+      <div class="rep-table-name" style="flex:1;min-width:120px;font-weight:700;color:var(--text)">Total</div>
+      ${totalesPorMes.map((v,i)=>`<div class="rep-table-cell${i===totalesPorMes.length-1?' current':''}" style="width:72px;font-weight:700;color:${i===totalesPorMes.length-1?'var(--accent)':'var(--text)'}">${fmtCompact(v)}</div>`).join('')}
+      <div style="width:56px"></div>
+    </div>`;
+
+    html += `</div></div></div>`;
+  }
+
+  // ── SECCIÓN 3: Top 5 categorías — estilo tarjeta, sin monto ──
+  const mesTop = meses[meses.length - 1];
+  const catTop = getMesByCategoria(mesTop);
+  const top5 = Object.entries(catTop)
+    .filter(([cat]) => cat !== 'Gastos fijos')
+    .sort((a,b) => b[1] - a[1])
+    .slice(0, 5);
+
+  if (top5.length) {
+    const totalTop5 = top5.reduce((s,[,v])=>s+v,0);
+    html += `<div class="rep-section">
+      <div class="rep-section-title">Top categorías</div>
+      <div style="font-size:12px;color:var(--text3);padding:0 16px;margin-bottom:12px;">${mesTop} · sin gastos fijos</div>
+      <div style="margin:0 16px;background:var(--bg2);border-radius:var(--radius);overflow:hidden">`;
+
+    top5.forEach(([cat, amount], i) => {
+      const pct = Math.round(amount / totalTop5 * 100);
+      const c = CARD_META[cat] || {};
+      html += `<div style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:${i<top5.length-1?'0.5px solid var(--separator)':'none'}">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);font-family:var(--mono);width:16px;flex-shrink:0">${i+1}</div>
+        <div style="font-size:22px;flex-shrink:0">${CAT_ICONS[cat]||'📦'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:500">${cat}</div>
+          <div style="margin-top:5px;height:3px;background:var(--bg3);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${catColor(cat)};border-radius:2px"></div>
+          </div>
+        </div>
+        <div style="font-size:13px;color:var(--text3);font-weight:500;flex-shrink:0">${pct}%</div>
+      </div>`;
+    });
+
+    html += `</div></div>`;
+  }
+
+  document.getElementById('reportesContent').innerHTML = html;
+
+  // Draw sparklines after DOM is ready
+  if (tarjetasConDatos.length) {
+    tarjetasConDatos.forEach(t => {
+      const el = document.getElementById('spark-' + t.replace(/\s/g,'_'));
+      if (!el) return;
+      const vals = meses.map(m => getMesByTarjeta(m)[t] || 0);
+      drawSparkline(el, vals);
+    });
+  }
+}
+
+function navegarDesdeReporte(mesIdx) {
+  currentMesIdx = mesIdx;
+  // Re-render all synced selectors
+  const nombre = MESES[mesIdx];
+  const monthHTML = `${nombre} <span class="month-year">2026</span>`;
+  ['monthName','tMonthName','gMonthName'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = monthHTML;
+  });
+  const disablePrev = mesIdx === 0;
+  const disableNext = mesIdx === 11;
+  ['btnPrevMes','tBtnPrev','gBtnPrev'].forEach(id => { const el=document.getElementById(id); if(el) el.disabled=disablePrev; });
+  ['btnNextMes','tBtnNext','gBtnNext'].forEach(id => { const el=document.getElementById(id); if(el) el.disabled=disableNext; });
+
+  // Re-render Reportes with this month as "current" (highlight)
+  // Scroll the selected card into view
+  setTimeout(() => {
+    const cards = document.querySelectorAll('.rep-month-card');
+    cards.forEach(c => c.classList.remove('current'));
+    if (cards[mesIdx] || cards.length) {
+      // find the card matching this mesIdx by its onclick
+      document.querySelectorAll('.rep-month-card').forEach(c => {
+        const onc = c.getAttribute('onclick') || '';
+        if (onc.includes(`(${mesIdx})`)) {
+          c.classList.add('current');
+          c.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+      });
+    }
+  }, 50);
 }
 
 // ═══════════════════════════════════
