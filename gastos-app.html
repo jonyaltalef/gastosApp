@@ -108,7 +108,7 @@ body {
 @keyframes fadeUp { from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:translateY(0);} }
 
 /* HEADER — iOS large title style */
-.header { padding: 20px 20px 8px; }
+.header { padding: 16px 20px 8px; }
 .header-label { font-size: 12px; font-weight: 500; letter-spacing: 0.04em; color: var(--accent); margin-bottom: 4px; text-transform: uppercase; }
 .header-title { font-size: 32px; font-weight: 700; letter-spacing: -0.04em; line-height: 1.1; }
 .header-sub { font-size: 14px; color: var(--text2); margin-top: 4px; font-weight: 400; }
@@ -1566,19 +1566,16 @@ function setScreen(id,btn){
 // REPORTES
 // ═══════════════════════════════════
 let reportesLoaded = false;
+let reportesMesIdx = 0;
+let reportesMeses  = [];
 
 async function initReportes() {
-  // Detect which months have data — try to load all months up to current
-  const today = new Date();
-  const upTo = today.getMonth(); // 0-based, so Febrero=1
-  const mesesToLoad = MESES.slice(0, upTo + 1);
-
-  // Load all months in parallel (uses cache if already loaded)
   document.getElementById('rSub').textContent = 'Cargando datos...';
-  await Promise.all(mesesToLoad.map(m => fetchMes(m)));
 
-  // Filter to months that actually have data
-  const mesesConDatos = mesesToLoad.filter(m => (DATA_BY_MES[m]||[]).length > 0);
+  // Try to load ALL months — skip those with no data
+  await Promise.all(MESES.map(m => fetchMes(m)));
+
+  const mesesConDatos = MESES.filter(m => (DATA_BY_MES[m]||[]).filter(r=>r.quien==='Choni').length > 0);
   if (!mesesConDatos.length) {
     document.getElementById('reportesContent').innerHTML =
       `<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-title">Sin datos</div><div class="empty-state-sub">No se encontraron meses con gastos cargados.</div></div>`;
@@ -1587,7 +1584,11 @@ async function initReportes() {
 
   document.getElementById('rLabel').textContent = '2026';
   document.getElementById('rSub').textContent = `${mesesConDatos.length} mes${mesesConDatos.length>1?'es':''} con datos`;
-  renderReportes(mesesConDatos);
+
+  // Default selected month = last available
+  reportesMesIdx = MESES.indexOf(mesesConDatos[mesesConDatos.length - 1]);
+  reportesMeses  = mesesConDatos;
+  renderReportes(mesesConDatos, reportesMesIdx);
 }
 
 function fmtCompact(n) {
@@ -1640,33 +1641,31 @@ function drawSparkline(el, values) {
   </svg>`;
 }
 
-function renderReportes(meses) {
-  const mesActual = MESES[currentMesIdx];
+function renderReportes(meses, selIdx) {
+  const selMes = MESES[selIdx];
   let html = '';
 
-  // ── SECCIÓN 1: Todos los meses ──
+  // ── SECCIÓN 1: Scroll de meses — todos ──
   html += `<div class="rep-section">
     <div class="rep-section-title">Comparativa mensual</div>
-    <div class="rep-months-scroll">`;
+    <div class="rep-months-scroll" id="repMonthsScroll">`;
 
   meses.forEach((mes, i) => {
-    const total = getMesTotals(mes);
-    const prev  = i > 0 ? getMesTotals(meses[i-1]) : null;
-    const delta = prev ? ((total - prev) / prev * 100) : null;
-    const deltaClass = delta === null ? 'neutral' : delta > 5 ? 'up' : delta < -5 ? 'down' : 'neutral';
-    const deltaSign  = delta > 0 ? '+' : '';
-    const txns = (DATA_BY_MES[mes]||[]).filter(r=>r.quien==='Choni').length;
-    const isCurrent = mes === mesActual;
-    const navIdx = MESES.indexOf(mes);
+    const mesGlobalIdx = MESES.indexOf(mes);
+    const total  = getMesTotals(mes);
+    const prevM  = i > 0 ? meses[i-1] : null;
+    const prev   = prevM ? getMesTotals(prevM) : null;
+    const delta  = prev ? ((total - prev) / prev * 100) : null;
+    const dClass = delta === null ? 'neutral' : delta > 5 ? 'up' : delta < -5 ? 'down' : 'neutral';
+    const dSign  = delta > 0 ? '+' : '';
+    const txns   = (DATA_BY_MES[mes]||[]).filter(r=>r.quien==='Choni').length;
+    const isSel  = mes === selMes;
 
-    html += `<div class="rep-month-card${isCurrent?' current':''}" onclick="navegarDesdeReporte(${navIdx})">
+    html += `<div class="rep-month-card${isSel?' current':''}" id="repCard-${mesGlobalIdx}" onclick="navegarDesdeReporte(${mesGlobalIdx})">
       <div class="rep-month-name">${mes}</div>
       <div class="rep-month-total">${fmtCompact(total)}</div>
       ${delta !== null
-        ? `<div class="rep-month-delta ${deltaClass}">
-             ${deltaClass==='up'?'↑':deltaClass==='down'?'↓':'·'}
-             ${deltaSign}${Math.round(delta)}% vs ${meses[i-1].slice(0,3)}
-           </div>`
+        ? `<div class="rep-month-delta ${dClass}">${dClass==='up'?'↑':dClass==='down'?'↓':'·'} ${dSign}${Math.round(delta)}% vs ${prevM.slice(0,3)}</div>`
         : `<div class="rep-month-delta neutral">Primer mes</div>`}
       <div class="rep-month-txns">${txns} movimientos</div>
     </div>`;
@@ -1674,125 +1673,139 @@ function renderReportes(meses) {
 
   html += `</div></div>`;
 
-  // ── SECCIÓN 2: Evolución por tarjeta — todos los meses disponibles ──
+  // ── SECCIÓN 2: Por tarjeta — columnas = todos los meses ──
   const tarjetasConDatos = ALL_TARJETAS.filter(t =>
     meses.some(m => (getMesByTarjeta(m)[t] || 0) > 0)
   );
 
   if (tarjetasConDatos.length) {
-    const mesesTabla = meses; // todos
-
     html += `<div class="rep-section">
       <div class="rep-section-title">Por tarjeta</div>
-      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-      <div class="rep-table" style="min-width:${180 + mesesTabla.length * 72}px">
-        <div class="rep-table-header">
-          <div class="rep-table-label" style="flex:1;min-width:120px">Tarjeta</div>
-          ${mesesTabla.map((m,i)=>`<div class="rep-table-label" style="width:72px;text-align:right;${i===mesesTabla.length-1?'color:var(--text2)':''}">${m.slice(0,3)}</div>`).join('')}
-          <div style="width:56px"></div>
-        </div>`;
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 16px">
+      <table style="width:100%;border-collapse:collapse;min-width:${120 + meses.length*68 + 56}px">
+        <thead>
+          <tr>
+            <th style="text-align:left;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;padding:10px 0 10px 14px;border-bottom:0.5px solid var(--separator)">Tarjeta</th>
+            ${meses.map((m,i)=>`<th style="text-align:right;font-size:11px;font-weight:600;color:${m===selMes?'var(--accent)':'var(--text3)'};text-transform:uppercase;letter-spacing:0.04em;padding:10px 8px 10px 0;border-bottom:0.5px solid var(--separator);white-space:nowrap">${m.slice(0,3)}</th>`).join('')}
+            <th style="width:56px;border-bottom:0.5px solid var(--separator)"></th>
+          </tr>
+        </thead>
+        <tbody>`;
 
     tarjetasConDatos.forEach(t => {
-      const vals = mesesTabla.map(m => getMesByTarjeta(m)[t] || 0);
+      const vals = meses.map(m => getMesByTarjeta(m)[t] || 0);
       const c = CARD_META[t] || {color:'#9090a0', label:'TARJETA'};
-      html += `<div class="rep-table-row">
-        <div class="rep-table-name" style="flex:1;min-width:120px">
-          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c.color};margin-right:7px;vertical-align:middle;flex-shrink:0"></span>${t}
-          <div class="rep-table-name-sub">${c.label}</div>
-        </div>
-        ${vals.map((v,i)=>`<div class="rep-table-cell${i===vals.length-1?' current':''}${v===0?' zero':''}" style="width:72px">${v>0?fmtCompact(v):'—'}</div>`).join('')}
-        <div class="rep-sparkline" id="spark-${t.replace(/\s/g,'_')}"></div>
-      </div>`;
+      html += `<tr>
+        <td style="padding:12px 0 12px 14px;border-bottom:0.5px solid var(--separator)">
+          <div style="display:flex;align-items:center;gap:7px">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c.color};flex-shrink:0"></span>
+            <div>
+              <div style="font-size:14px;font-weight:500">${t}</div>
+              <div style="font-size:10px;color:var(--text3)">${c.label}</div>
+            </div>
+          </div>
+        </td>
+        ${vals.map((v,i)=>`<td style="text-align:right;padding:12px 8px 12px 0;font-family:var(--mono);font-size:12px;font-weight:${meses[i]===selMes?'600':'400'};color:${v===0?'var(--text3)':meses[i]===selMes?'var(--text)':'var(--text2)'};border-bottom:0.5px solid var(--separator)">${v>0?fmtCompact(v):'—'}</td>`).join('')}
+        <td style="padding:12px 14px 12px 0;border-bottom:0.5px solid var(--separator)">
+          <div class="rep-sparkline" id="spark-${t.replace(/\s/g,'_')}"></div>
+        </td>
+      </tr>`;
     });
 
-    // Fila de totales
-    const totalesPorMes = mesesTabla.map(m => getMesTotals(m));
-    html += `<div class="rep-table-row" style="border-top:1px solid var(--separator);background:rgba(200,240,96,0.04)">
-      <div class="rep-table-name" style="flex:1;min-width:120px;font-weight:700;color:var(--text)">Total</div>
-      ${totalesPorMes.map((v,i)=>`<div class="rep-table-cell${i===totalesPorMes.length-1?' current':''}" style="width:72px;font-weight:700;color:${i===totalesPorMes.length-1?'var(--accent)':'var(--text)'}">${fmtCompact(v)}</div>`).join('')}
-      <div style="width:56px"></div>
-    </div>`;
+    // Fila totales
+    const totales = meses.map(m => getMesTotals(m));
+    html += `<tr style="background:rgba(200,240,96,0.04)">
+      <td style="padding:12px 0 12px 14px;font-size:14px;font-weight:700">Total</td>
+      ${totales.map((v,i)=>`<td style="text-align:right;padding:12px 8px 12px 0;font-family:var(--mono);font-size:12px;font-weight:700;color:${meses[i]===selMes?'var(--accent)':'var(--text)'}">${fmtCompact(v)}</td>`).join('')}
+      <td style="padding:12px 14px 12px 0">
+        <div class="rep-sparkline" id="spark-TOTAL"></div>
+      </td>
+    </tr>`;
 
-    html += `</div></div></div>`;
+    html += `</tbody></table></div></div>`;
   }
 
-  // ── SECCIÓN 3: Top 5 categorías — estilo tarjeta, sin monto ──
-  const mesTop = meses[meses.length - 1];
-  const catTop = getMesByCategoria(mesTop);
-  const top5 = Object.entries(catTop)
-    .filter(([cat]) => cat !== 'Gastos fijos')
-    .sort((a,b) => b[1] - a[1])
-    .slice(0, 5);
+  // ── SECCIÓN 3: Top categorías — tabla igual a Por tarjeta ──
+  const catConDatos = ALL_CATS.filter(cat =>
+    cat !== 'Gastos fijos' && meses.some(m => (getMesByCategoria(m)[cat] || 0) > 0)
+  );
+  // Sort by selected month value desc
+  const catSorted = catConDatos
+    .map(cat => ({ cat, val: getMesByCategoria(selMes)[cat]||0 }))
+    .filter(x => x.val > 0)
+    .sort((a,b) => b.val - a.val)
+    .slice(0, 5)
+    .map(x => x.cat);
 
-  if (top5.length) {
-    const totalTop5 = top5.reduce((s,[,v])=>s+v,0);
+  if (catSorted.length) {
     html += `<div class="rep-section">
       <div class="rep-section-title">Top categorías</div>
-      <div style="font-size:12px;color:var(--text3);padding:0 16px;margin-bottom:12px;">${mesTop} · sin gastos fijos</div>
-      <div style="margin:0 16px;background:var(--bg2);border-radius:var(--radius);overflow:hidden">`;
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 16px">
+      <table style="width:100%;border-collapse:collapse;min-width:${120 + meses.length*68 + 56}px">
+        <thead>
+          <tr>
+            <th style="text-align:left;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;padding:10px 0 10px 14px;border-bottom:0.5px solid var(--separator)">Categoría</th>
+            ${meses.map(m=>`<th style="text-align:right;font-size:11px;font-weight:600;color:${m===selMes?'var(--accent)':'var(--text3)'};text-transform:uppercase;letter-spacing:0.04em;padding:10px 8px 10px 0;border-bottom:0.5px solid var(--separator);white-space:nowrap">${m.slice(0,3)}</th>`).join('')}
+            <th style="width:56px;border-bottom:0.5px solid var(--separator)"></th>
+          </tr>
+        </thead>
+        <tbody>`;
 
-    top5.forEach(([cat, amount], i) => {
-      const pct = Math.round(amount / totalTop5 * 100);
-      const c = CARD_META[cat] || {};
-      html += `<div style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:${i<top5.length-1?'0.5px solid var(--separator)':'none'}">
-        <div style="font-size:11px;font-weight:700;color:var(--text3);font-family:var(--mono);width:16px;flex-shrink:0">${i+1}</div>
-        <div style="font-size:22px;flex-shrink:0">${CAT_ICONS[cat]||'📦'}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:15px;font-weight:500">${cat}</div>
-          <div style="margin-top:5px;height:3px;background:var(--bg3);border-radius:2px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:${catColor(cat)};border-radius:2px"></div>
+    catSorted.forEach((cat, i) => {
+      const vals = meses.map(m => getMesByCategoria(m)[cat] || 0);
+      html += `<tr>
+        <td style="padding:12px 0 12px 14px;border-bottom:${i<catSorted.length-1?'0.5px solid var(--separator)':'none'}">
+          <div style="display:flex;align-items:center;gap:7px">
+            <span style="font-size:10px;font-weight:700;color:var(--text3);font-family:var(--mono)">${i+1}</span>
+            <span style="font-size:18px">${CAT_ICONS[cat]||'📦'}</span>
+            <div style="font-size:14px;font-weight:500">${cat}</div>
           </div>
-        </div>
-        <div style="font-size:13px;color:var(--text3);font-weight:500;flex-shrink:0">${pct}%</div>
-      </div>`;
+        </td>
+        ${vals.map((v,mi)=>`<td style="text-align:right;padding:12px 8px 12px 0;font-family:var(--mono);font-size:12px;font-weight:${meses[mi]===selMes?'600':'400'};color:${v===0?'var(--text3)':meses[mi]===selMes?'var(--text)':'var(--text2)'};border-bottom:${i<catSorted.length-1?'0.5px solid var(--separator)':'none'}">${v>0?fmtCompact(v):'—'}</td>`).join('')}
+        <td style="padding:12px 14px 12px 0;border-bottom:${i<catSorted.length-1?'0.5px solid var(--separator)':'none'}">
+          <div class="rep-sparkline" id="spark-cat-${cat.replace(/\s/g,'_')}"></div>
+        </td>
+      </tr>`;
     });
 
-    html += `</div></div>`;
+    html += `</tbody></table></div></div>`;
   }
 
   document.getElementById('reportesContent').innerHTML = html;
 
-  // Draw sparklines after DOM is ready
-  if (tarjetasConDatos.length) {
-    tarjetasConDatos.forEach(t => {
-      const el = document.getElementById('spark-' + t.replace(/\s/g,'_'));
-      if (!el) return;
-      const vals = meses.map(m => getMesByTarjeta(m)[t] || 0);
-      drawSparkline(el, vals);
-    });
-  }
+  // Draw sparklines
+  tarjetasConDatos.forEach(t => {
+    const el = document.getElementById('spark-' + t.replace(/\s/g,'_'));
+    if (el) drawSparkline(el, meses.map(m => getMesByTarjeta(m)[t] || 0));
+  });
+  const totalEl = document.getElementById('spark-TOTAL');
+  if (totalEl) drawSparkline(totalEl, meses.map(m => getMesTotals(m)));
+  catSorted.forEach(cat => {
+    const el = document.getElementById('spark-cat-' + cat.replace(/\s/g,'_'));
+    if (el) drawSparkline(el, meses.map(m => getMesByCategoria(m)[cat] || 0));
+  });
+
+  // Scroll selected card into view
+  setTimeout(() => {
+    const card = document.getElementById('repCard-' + selIdx);
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, 80);
 }
 
 function navegarDesdeReporte(mesIdx) {
-  currentMesIdx = mesIdx;
-  // Re-render all synced selectors
+  reportesMesIdx = mesIdx;
+  currentMesIdx  = mesIdx;
+  // Sync global month selectors
   const nombre = MESES[mesIdx];
   const monthHTML = `${nombre} <span class="month-year">2026</span>`;
   ['monthName','tMonthName','gMonthName'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = monthHTML;
+    const el = document.getElementById(id); if (el) el.innerHTML = monthHTML;
   });
-  const disablePrev = mesIdx === 0;
-  const disableNext = mesIdx === 11;
-  ['btnPrevMes','tBtnPrev','gBtnPrev'].forEach(id => { const el=document.getElementById(id); if(el) el.disabled=disablePrev; });
-  ['btnNextMes','tBtnNext','gBtnNext'].forEach(id => { const el=document.getElementById(id); if(el) el.disabled=disableNext; });
-
-  // Re-render Reportes with this month as "current" (highlight)
-  // Scroll the selected card into view
-  setTimeout(() => {
-    const cards = document.querySelectorAll('.rep-month-card');
-    cards.forEach(c => c.classList.remove('current'));
-    if (cards[mesIdx] || cards.length) {
-      // find the card matching this mesIdx by its onclick
-      document.querySelectorAll('.rep-month-card').forEach(c => {
-        const onc = c.getAttribute('onclick') || '';
-        if (onc.includes(`(${mesIdx})`)) {
-          c.classList.add('current');
-          c.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-        }
-      });
-    }
-  }, 50);
+  const dp = mesIdx===0, dn = mesIdx===11;
+  ['btnPrevMes','tBtnPrev','gBtnPrev'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=dp;});
+  ['btnNextMes','tBtnNext','gBtnNext'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=dn;});
+  // Re-render with new selected month
+  renderReportes(reportesMeses, mesIdx);
 }
 
 // ═══════════════════════════════════
