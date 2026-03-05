@@ -608,7 +608,7 @@ select.sheet-input { appearance: none; }
       <label class="form-label">Monto</label>
       <div class="amount-input-wrap">
         <div class="amount-prefix">$</div>
-        <input class="amount-input" type="number" placeholder="0" id="inputMonto" inputmode="decimal">
+        <input class="amount-input" type="text" inputmode="decimal" placeholder="0" id="inputMonto">
       </div>
     </div>
     <div class="form-section">
@@ -627,14 +627,14 @@ select.sheet-input { appearance: none; }
       </div>
     </div>
     <div class="form-section">
-      <div class="field-row">
+      <div class="field-row" style="align-items:end">
         <div>
           <label class="form-label">Fecha</label>
-          <input class="field-input" type="date" id="inputFecha">
+          <input class="field-input" type="date" id="inputFecha" style="height:46px;display:block">
         </div>
         <div>
           <label class="form-label">Cuotas</label>
-          <select class="field-input" id="inputCuota">
+          <select class="field-input" id="inputCuota" style="height:46px;display:block">
             <option value="">Sin cuotas</option>
             <option value="2">2</option><option value="3">3</option>
             <option value="6">6</option><option value="12">12</option>
@@ -1492,7 +1492,7 @@ async function submitGasto(){
   const desc     = document.getElementById('inputDesc').value.trim().toUpperCase();
   const fecha    = document.getElementById('inputFecha').value;
   const cuotaN   = document.getElementById('inputCuota').value;
-  const imp      = parseFloat(monto);
+  const imp      = parseFloat(monto.replace(',', '.'));
 
   // Build cuota string "1/N" for current month
   const cuota = cuotaN ? `1/${cuotaN}` : '';
