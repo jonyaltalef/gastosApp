@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-<title>Gastos</title>
+<title>Gastos app</title>
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Gastos">
+<meta name="apple-mobile-web-app-title" content="Gastos app">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#0f0f11">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -898,7 +898,7 @@ async function loadMes(mesIdx) {
   const nombre = MESES[mesIdx];
   const prevNombre = MESES[mesIdx - 1];
   const isNew = !DATA_BY_MES[nombre];
-  if (isNew) showLoading(true, `Cargando ${nombre}...`);
+  if (isNew) showLoading(true, `Cargando...`);
   await Promise.all([
     fetchMes(nombre),
     prevNombre ? fetchMes(prevNombre) : Promise.resolve(),
@@ -916,7 +916,14 @@ function showLoading(on, label) {
 }
 
 async function submitGastoToSheet(row) {
-  const mes = MESES[currentMesIdx];
+  // Derive target sheet from the expense date, not the currently viewed month
+  let mes;
+  if (row.fecha) {
+    const d = new Date(row.fecha + 'T00:00:00');
+    mes = MESES[d.getMonth()];
+  } else {
+    mes = MESES[currentMesIdx];
+  }
   try {
     await fetch(SCRIPT_URL, {
       method: 'POST',
@@ -933,7 +940,7 @@ async function submitGastoToSheet(row) {
 // ═══════════════════════════════════
 // STATE
 // ═══════════════════════════════════
-let currentMesIdx = 1; // Febrero = índice 1
+let currentMesIdx = new Date().getMonth(); // mes actual
 let selectedWeek  = null;
 let searchQuery   = '';
 let filters       = {cat:[],card:[],persona:[],semana:null};

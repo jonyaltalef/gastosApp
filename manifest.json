@@ -1,6 +1,6 @@
 {
-  "name": "Gastos",
-  "short_name": "Gastos",
+  "name": "Gastos app",
+  "short_name": "Gastos app",
   "description": "Seguimiento de gastos personales",
   "start_url": "/gastosApp/gastos-app.html",
   "display": "standalone",
