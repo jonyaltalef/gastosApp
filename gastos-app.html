@@ -2096,19 +2096,18 @@ let ID_TOKEN = null;
 function onLoginSuccess(response) {
   ID_TOKEN = response.credential;
   console.log('✅ Token guardado, largo:', ID_TOKEN.length);
+  loadMes(currentMesIdx);
+  intentarProgramar();
 }
 
 window.addEventListener('load', () => {
   google.accounts.id.initialize({
     client_id: CLIENT_ID,
     callback: onLoginSuccess,
-    auto_select: false,
+    auto_select: true,
   });
   google.accounts.id.prompt();
 });
-
-loadMes(currentMesIdx);
-intentarProgramar();
 </script>
 </body>
 </html>
