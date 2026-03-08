@@ -111,6 +111,9 @@ body {
 .header { padding: 16px 20px 8px; }
 .header-label { font-size: 12px; font-weight: 500; letter-spacing: 0.04em; color: var(--accent); margin-bottom: 4px; text-transform: uppercase; }
 .header-title { font-size: 32px; font-weight: 700; letter-spacing: -0.04em; line-height: 1.1; }
+.header-top { display: flex; align-items: flex-start; justify-content: space-between; }
+.profile-avatar { width: 36px; height: 36px; border-radius: 50%; overflow: hidden; flex-shrink: 0; margin-top: 4px; border: 2px solid var(--bg3); cursor: pointer; }
+.profile-avatar img { width: 100%; height: 100%; object-fit: cover; display: none; }
 .header-sub { font-size: 14px; color: var(--text2); margin-top: 4px; font-weight: 400; }
 
 /* MONTH SELECTOR — iOS segmented feel */
@@ -549,8 +552,15 @@ select.sheet-input { appearance: none; }
 <!-- ESTE MES -->
 <div class="screen active" id="screen-estemes">
   <div class="header">
-    <div class="header-label" id="emLabel">Cargando...</div>
-    <div class="header-title">Resumen</div>
+    <div class="header-top">
+      <div>
+        <div class="header-label" id="emLabel">Cargando...</div>
+        <div class="header-title">Resumen</div>
+      </div>
+      <div class="profile-avatar" id="profileAvatar" onclick="cerrarSesion()" title="Cerrar sesión">
+        <img id="profileImg" src="" alt="">
+      </div>
+    </div>
     <div class="header-sub" id="emSub"></div>
   </div>
   <div class="month-selector">
@@ -910,7 +920,6 @@ async function loadMes(mesIdx) {
 }
 
 function showLoading(on, label) {
-  document.getElementById('loadingBar').style.opacity = on ? '1' : '0';
   document.getElementById('loadingOverlay').classList.toggle('show', on);
   if (label) document.getElementById('loadingLabel').textContent = label;
 }
@@ -2098,7 +2107,25 @@ const TOKEN_KEY = 'gastosapp_token';
 function onLoginSuccess(response) {
   ID_TOKEN = response.credential;
   localStorage.setItem(TOKEN_KEY, ID_TOKEN);
+  mostrarAvatar(ID_TOKEN);
   iniciarApp();
+}
+
+function mostrarAvatar(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (payload.picture) {
+      const img = document.getElementById('profileImg');
+      img.src = payload.picture;
+      img.style.display = 'block';
+    }
+  } catch(e) {}
+}
+
+function cerrarSesion() {
+  if (!confirm('¿Cerrar sesión?')) return;
+  localStorage.removeItem(TOKEN_KEY);
+  location.reload();
 }
 
 function iniciarApp() {
@@ -2107,14 +2134,17 @@ function iniciarApp() {
 }
 
 window.addEventListener('load', () => {
+  // Mostrar loading inmediatamente
+  showLoading(true, 'Cargando...');
+
   // Intentar token cacheado primero
   const cached = localStorage.getItem(TOKEN_KEY);
   if (cached) {
-    // Verificar que no esté vencido (JWT exp claim)
     try {
       const payload = JSON.parse(atob(cached.split('.')[1]));
       if (payload.exp * 1000 > Date.now()) {
         ID_TOKEN = cached;
+        mostrarAvatar(cached);
         iniciarApp();
         return;
       }
@@ -2122,6 +2152,7 @@ window.addEventListener('load', () => {
     localStorage.removeItem(TOKEN_KEY);
   }
   // Sin token válido → pedir login
+  showLoading(false);
   google.accounts.id.initialize({
     client_id: CLIENT_ID,
     callback: onLoginSuccess,
