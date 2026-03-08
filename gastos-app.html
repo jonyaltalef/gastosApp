@@ -880,13 +880,12 @@ const PERSONA_META = {
 // APPS SCRIPT CONNECTION
 // ═══════════════════════════════════
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxXMQDXjdtPKQgpytJ68igy_SeY0ZqQ1OhZLhuvm3f6MYYBjLhwnYCq5eHiQIgHn1ryxA/exec';
-const SECRET = 'Mila1704';
 const DATA_BY_MES = {};
 
 async function fetchMes(mesNombre) {
   if (DATA_BY_MES[mesNombre]) return DATA_BY_MES[mesNombre];
   try {
-    const res = await fetch(`${SCRIPT_URL}?action=getData&mes=${encodeURIComponent(mesNombre)}&key=${SECRET}`);
+    const res = await fetch(`${SCRIPT_URL}?action=getData&mes=${encodeURIComponent(mesNombre)}&token=${ID_TOKEN}`);
     const json = await res.json();
     DATA_BY_MES[mesNombre] = json.rows || [];
   } catch(e) {
@@ -928,7 +927,7 @@ async function submitGastoToSheet(row) {
   try {
     await fetch(SCRIPT_URL, {
       method: 'POST',
-      body: JSON.stringify({ mes, row, key: SECRET }),
+      body: JSON.stringify({ mes, row, token: ID_TOKEN }),
     });
     delete DATA_BY_MES[mes];
     await fetchMes(mes);
@@ -2048,7 +2047,7 @@ async function saveEdit(){
   try {
     await fetch(SCRIPT_URL, {
       method:'POST',
-      body: JSON.stringify({key:SECRET, action:'update', mes:MESES[currentMesIdx], rowIndex:editingRow._row, row:updatedRow}),
+      body: JSON.stringify({token:ID_TOKEN, action:'update', mes:MESES[currentMesIdx], rowIndex:editingRow._row, row:updatedRow}),
     });
     delete DATA_BY_MES[MESES[currentMesIdx]];
     await fetchMes(MESES[currentMesIdx]);
@@ -2072,7 +2071,7 @@ async function deleteGasto(){
   try {
     await fetch(SCRIPT_URL, {
       method:'POST',
-      body: JSON.stringify({key:SECRET, action:'delete', mes:MESES[currentMesIdx], rowIndex:editingRow._row}),
+      body: JSON.stringify({token:ID_TOKEN, action:'delete', mes:MESES[currentMesIdx], rowIndex:editingRow._row}),
     });
     delete DATA_BY_MES[MESES[currentMesIdx]];
     await fetchMes(MESES[currentMesIdx]);
@@ -2092,11 +2091,11 @@ async function deleteGasto(){
 // INIT — Login
 // ═══════════════════════════════════
 const CLIENT_ID = '318967722133-kegd459iu8q521rs9u09c98pke01ii0g.apps.googleusercontent.com';
+let ID_TOKEN = null;
 
 function onLoginSuccess(response) {
-  const token = response.credential;
-  console.log('✅ Token obtenido:', token);
-  // Próximo paso: usar el token para llamar al Sheet
+  ID_TOKEN = response.credential;
+  console.log('✅ Token guardado, largo:', ID_TOKEN.length);
 }
 
 window.addEventListener('load', () => {
