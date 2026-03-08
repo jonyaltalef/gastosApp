@@ -940,14 +940,27 @@ const CLIENT_ID  = '318967722133-kegd459iu8q521rs9u09c98pke01ii0g.apps.googleuse
 const DATA_BY_MES = {};
 let   ID_TOKEN = null; // set after login
 
+async function scriptFetch(body) {
+  // Apps Script redirects POST from script.google.com to script.googleusercontent.com
+  // We need to follow that redirect manually preserving the POST body
+  const opts = {
+    method: 'POST',
+    body: JSON.stringify(body),
+    redirect: 'manual',
+  };
+  let res = await fetch(SCRIPT_URL, opts);
+  if (res.type === 'opaqueredirect' || res.status === 302 || res.status === 301) {
+    const location = res.headers.get('Location');
+    if (location) res = await fetch(location, { method: 'POST', body: JSON.stringify(body) });
+  }
+  return res;
+}
+
 async function fetchMes(mesNombre) {
   if (DATA_BY_MES[mesNombre] !== undefined) return DATA_BY_MES[mesNombre];
   if (!ID_TOKEN) return [];
   try {
-    const res  = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'getData', mes: mesNombre, token: ID_TOKEN }),
-    });
+    const res  = await scriptFetch({ action: 'getData', mes: mesNombre, token: ID_TOKEN });
     const json = await res.json();
     if (json.error) { console.warn('Sheet error:', json.error); return []; }
     DATA_BY_MES[mesNombre] = json.rows || [];
@@ -989,10 +1002,7 @@ async function submitGastoToSheet(row) {
     mes = MESES[currentMesIdx];
   }
   try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ mes, row, token: ID_TOKEN }),
-    });
+    await scriptFetch({ mes, row, token: ID_TOKEN });
     delete DATA_BY_MES[mes];
     await fetchMes(mes);
   } catch(e) {
@@ -2109,10 +2119,7 @@ async function saveEdit(){
     quien:   document.getElementById('editPersona').value,
   };
   try {
-    await fetch(SCRIPT_URL, {
-      method:'POST',
-      body: JSON.stringify({token:ID_TOKEN, action:'update', mes:MESES[currentMesIdx], rowIndex:editingRow._row, row:updatedRow}),
-    });
+    await scriptFetch({token:ID_TOKEN, action:'update', mes:MESES[currentMesIdx], rowIndex:editingRow._row, row:updatedRow});
     delete DATA_BY_MES[MESES[currentMesIdx]];
     await fetchMes(MESES[currentMesIdx]);
     closeEditSheet();
@@ -2133,10 +2140,7 @@ async function deleteGasto(){
   const btn=document.getElementById('sheetSaveBtn');
   btn.textContent='Eliminando...'; btn.disabled=true;
   try {
-    await fetch(SCRIPT_URL, {
-      method:'POST',
-      body: JSON.stringify({token:ID_TOKEN, action:'delete', mes:MESES[currentMesIdx], rowIndex:editingRow._row}),
-    });
+    await scriptFetch({token:ID_TOKEN, action:'delete', mes:MESES[currentMesIdx], rowIndex:editingRow._row});
     delete DATA_BY_MES[MESES[currentMesIdx]];
     await fetchMes(MESES[currentMesIdx]);
     closeEditSheet();
