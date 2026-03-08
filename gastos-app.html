@@ -535,8 +535,47 @@ select.sheet-input { appearance: none; }
 .rep-tend-arr.up { color: var(--red); }
 .rep-tend-arr.down { color: var(--accent); }
 
+/* LOGIN */
+.login-screen {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 0; z-index: 1000;
+  padding: env(safe-area-inset-top) 40px env(safe-area-inset-bottom);
+}
+.login-logo {
+  width: 80px; height: 80px; border-radius: 20px;
+  background: var(--bg2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 40px; margin-bottom: 28px;
+}
+.login-title { font-size: 28px; font-weight: 700; letter-spacing: -0.04em; margin-bottom: 8px; }
+.login-sub { font-size: 15px; color: var(--text2); margin-bottom: 48px; text-align: center; line-height: 1.5; }
+.login-btn {
+  display: flex; align-items: center; gap: 12px;
+  background: white; color: #1f1f1f;
+  border: none; border-radius: 12px;
+  padding: 14px 24px; font-size: 15px; font-weight: 600;
+  cursor: pointer; font-family: var(--sans);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  transition: opacity 0.15s;
+}
+.login-btn:active { opacity: 0.8; }
+.login-btn img { width: 20px; height: 20px; }
+
+/* PROFILE AVATAR in header */
+.header-row { display: flex; align-items: flex-start; justify-content: space-between; }
+.profile-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  overflow: hidden; flex-shrink: 0; margin-top: 2px;
+  cursor: pointer; border: 2px solid var(--bg3);
+}
+.profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
 .rep-loading { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 14px; }
 </style>
+<script src="https://accounts.google.com/gsi/client" async></script>
 </head>
 <body>
 <div class="loading-bar" id="loadingBar"></div>
@@ -545,12 +584,30 @@ select.sheet-input { appearance: none; }
   <div class="loading-label" id="loadingLabel">Cargando...</div>
 </div>
 
+<!-- LOGIN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-logo">💸</div>
+  <div class="login-title">Gastos app</div>
+  <div class="login-sub">Iniciá sesión con tu cuenta<br>de Google para continuar</div>
+  <button class="login-btn" onclick="iniciarLogin()">
+    <img src="https://www.google.com/favicon.ico" alt="Google">
+    Continuar con Google
+  </button>
+</div>
+
 <!-- ESTE MES -->
 <div class="screen active" id="screen-estemes">
   <div class="header">
-    <div class="header-label" id="emLabel">Cargando...</div>
-    <div class="header-title">Resumen</div>
-    <div class="header-sub" id="emSub"></div>
+    <div class="header-row">
+      <div>
+        <div class="header-label" id="emLabel">Cargando...</div>
+        <div class="header-title">Resumen</div>
+        <div class="header-sub" id="emSub"></div>
+      </div>
+      <div class="profile-avatar" id="profileAvatar" onclick="cerrarSesion()" title="Cerrar sesión">
+        <img id="profileImg" src="" alt="">
+      </div>
+    </div>
   </div>
   <div class="month-selector">
     <button class="month-arrow" id="btnPrevMes" onclick="cambiarMes(-1)">
@@ -879,13 +936,14 @@ const PERSONA_META = {
 // APPS SCRIPT CONNECTION
 // ═══════════════════════════════════
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxXMQDXjdtPKQgpytJ68igy_SeY0ZqQ1OhZLhuvm3f6MYYBjLhwnYCq5eHiQIgHn1ryxA/exec';
-const SECRET = 'Mila1704';
+const CLIENT_ID  = '318967722133-kegd459iu8q521rs9u09c98pke01ii0g.apps.googleusercontent.com';
 const DATA_BY_MES = {};
+let   ID_TOKEN = null; // set after login
 
 async function fetchMes(mesNombre) {
   if (DATA_BY_MES[mesNombre]) return DATA_BY_MES[mesNombre];
   try {
-    const res = await fetch(`${SCRIPT_URL}?action=getData&mes=${encodeURIComponent(mesNombre)}&key=${SECRET}`);
+    const res = await fetch(`${SCRIPT_URL}?action=getData&mes=${encodeURIComponent(mesNombre)}&token=${ID_TOKEN}`);
     const json = await res.json();
     DATA_BY_MES[mesNombre] = json.rows || [];
   } catch(e) {
@@ -927,7 +985,7 @@ async function submitGastoToSheet(row) {
   try {
     await fetch(SCRIPT_URL, {
       method: 'POST',
-      body: JSON.stringify({ mes, row, key: SECRET }),
+      body: JSON.stringify({ mes, row, token: ID_TOKEN }),
     });
     delete DATA_BY_MES[mes];
     await fetchMes(mes);
@@ -2047,7 +2105,7 @@ async function saveEdit(){
   try {
     await fetch(SCRIPT_URL, {
       method:'POST',
-      body: JSON.stringify({key:SECRET, action:'update', mes:MESES[currentMesIdx], rowIndex:editingRow._row, row:updatedRow}),
+      body: JSON.stringify({token:ID_TOKEN, action:'update', mes:MESES[currentMesIdx], rowIndex:editingRow._row, row:updatedRow}),
     });
     delete DATA_BY_MES[MESES[currentMesIdx]];
     await fetchMes(MESES[currentMesIdx]);
@@ -2071,7 +2129,7 @@ async function deleteGasto(){
   try {
     await fetch(SCRIPT_URL, {
       method:'POST',
-      body: JSON.stringify({key:SECRET, action:'delete', mes:MESES[currentMesIdx], rowIndex:editingRow._row}),
+      body: JSON.stringify({token:ID_TOKEN, action:'delete', mes:MESES[currentMesIdx], rowIndex:editingRow._row}),
     });
     delete DATA_BY_MES[MESES[currentMesIdx]];
     await fetchMes(MESES[currentMesIdx]);
@@ -2088,10 +2146,70 @@ async function deleteGasto(){
 }
 
 // ═══════════════════════════════════
-// INIT
+// AUTH & INIT
 // ═══════════════════════════════════
-loadMes(currentMesIdx);
-intentarProgramar();
+const TOKEN_CACHE_KEY = 'gastosapp_id_token';
+
+function iniciarApp(token, profile) {
+  ID_TOKEN = token;
+  // Show avatar
+  const img = document.getElementById('profileImg');
+  if (img && profile.picture) img.src = profile.picture;
+  // Hide login screen
+  document.getElementById('loginScreen').style.display = 'none';
+  // Start app
+  loadMes(currentMesIdx);
+  intentarProgramar();
+}
+
+function cerrarSesion() {
+  if (!confirm('¿Cerrar sesión?')) return;
+  localStorage.removeItem(TOKEN_CACHE_KEY);
+  ID_TOKEN = null;
+  document.getElementById('loginScreen').style.display = 'flex';
+}
+
+function iniciarLogin() {
+  google.accounts.id.initialize({
+    client_id: CLIENT_ID,
+    callback: (resp) => {
+      const token = resp.credential;
+      // Decode payload (no verification needed — Apps Script verifies)
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      localStorage.setItem(TOKEN_CACHE_KEY, token);
+      iniciarApp(token, payload);
+    },
+    auto_select: true,
+  });
+  google.accounts.id.prompt((notification) => {
+    // If One Tap dismissed or not available, show manual button flow
+    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+      google.accounts.id.renderButton(
+        document.createElement('div'), {}
+      );
+    }
+  });
+}
+
+// On load: try cached token first
+window.addEventListener('load', () => {
+  const cached = localStorage.getItem(TOKEN_CACHE_KEY);
+  if (cached) {
+    try {
+      const payload = JSON.parse(atob(cached.split('.')[1]));
+      const exp = payload.exp * 1000;
+      if (Date.now() < exp) {
+        iniciarApp(cached, payload);
+        return;
+      }
+    } catch(e) {}
+    localStorage.removeItem(TOKEN_CACHE_KEY);
+  }
+  // Token expired or missing — init Google One Tap
+  window.onGoogleLibraryLoad = iniciarLogin;
+  // If library already loaded
+  if (window.google?.accounts) iniciarLogin();
+});
 </script>
 </body>
 </html>
