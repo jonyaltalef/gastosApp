@@ -941,37 +941,25 @@ const DATA_BY_MES = {};
 let   ID_TOKEN = null; // set after login
 
 async function scriptFetch(body) {
-  const opts = {
+  const res = await fetch(SCRIPT_URL, {
     method: 'POST',
     body: JSON.stringify(body),
-    redirect: 'manual',
-  };
-  let res = await fetch(SCRIPT_URL, opts);
-  console.log('Primera respuesta status:', res.status, res.type);
-  if (res.type === 'opaqueredirect' || res.status === 302 || res.status === 301) {
-    const location = res.headers.get('Location');
-    console.log('Redirect a:', location);
-    if (location) {
-      res = await fetch(location, { method: 'POST', body: JSON.stringify(body) });
-      console.log('Segunda respuesta status:', res.status);
-      const text = await res.text();
-      console.log('Respuesta texto:', text.slice(0, 200));
-      return { json: async () => JSON.parse(text) };
-    }
-  }
-  const text = await res.text();
-  console.log('Respuesta directa:', text.slice(0, 200));
-  return { json: async () => JSON.parse(text) };
+  });
+  return res;
 }
 
 async function fetchMes(mesNombre) {
   if (DATA_BY_MES[mesNombre] !== undefined) return DATA_BY_MES[mesNombre];
   if (!ID_TOKEN) return [];
   try {
-    const res  = await scriptFetch({ action: 'getData', mes: mesNombre, token: ID_TOKEN });
-    const json = await res.json();
-    if (json.error) { console.warn('Sheet error:', json.error); return []; }
-    DATA_BY_MES[mesNombre] = json.rows || [];
+    // Use only the signature part of the JWT (last segment) to keep URL short
+    const shortToken = ID_TOKEN.split('.').slice(0,2).join('.');
+    const res  = await fetch(`${SCRIPT_URL}?action=getData&mes=${encodeURIComponent(mesNombre)}&token=${encodeURIComponent(ID_TOKEN)}`);
+    const text = await res.text();
+    console.log('fetchMes raw:', text.slice(0, 100));
+    const data = JSON.parse(text);
+    if (data.error) { console.warn('Sheet error:', data.error); return []; }
+    DATA_BY_MES[mesNombre] = data.rows || [];
   } catch(e) {
     console.warn('fetchMes error:', e);
     return [];
