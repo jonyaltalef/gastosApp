@@ -941,19 +941,27 @@ const DATA_BY_MES = {};
 let   ID_TOKEN = null; // set after login
 
 async function scriptFetch(body) {
-  // Apps Script redirects POST from script.google.com to script.googleusercontent.com
-  // We need to follow that redirect manually preserving the POST body
   const opts = {
     method: 'POST',
     body: JSON.stringify(body),
     redirect: 'manual',
   };
   let res = await fetch(SCRIPT_URL, opts);
+  console.log('Primera respuesta status:', res.status, res.type);
   if (res.type === 'opaqueredirect' || res.status === 302 || res.status === 301) {
     const location = res.headers.get('Location');
-    if (location) res = await fetch(location, { method: 'POST', body: JSON.stringify(body) });
+    console.log('Redirect a:', location);
+    if (location) {
+      res = await fetch(location, { method: 'POST', body: JSON.stringify(body) });
+      console.log('Segunda respuesta status:', res.status);
+      const text = await res.text();
+      console.log('Respuesta texto:', text.slice(0, 200));
+      return { json: async () => JSON.parse(text) };
+    }
   }
-  return res;
+  const text = await res.text();
+  console.log('Respuesta directa:', text.slice(0, 200));
+  return { json: async () => JSON.parse(text) };
 }
 
 async function fetchMes(mesNombre) {
