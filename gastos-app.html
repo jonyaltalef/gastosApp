@@ -2093,14 +2093,35 @@ async function deleteGasto(){
 const CLIENT_ID = '318967722133-kegd459iu8q521rs9u09c98pke01ii0g.apps.googleusercontent.com';
 let ID_TOKEN = null;
 
+const TOKEN_KEY = 'gastosapp_token';
+
 function onLoginSuccess(response) {
   ID_TOKEN = response.credential;
-  console.log('✅ Token guardado, largo:', ID_TOKEN.length);
+  localStorage.setItem(TOKEN_KEY, ID_TOKEN);
+  iniciarApp();
+}
+
+function iniciarApp() {
   loadMes(currentMesIdx);
   intentarProgramar();
 }
 
 window.addEventListener('load', () => {
+  // Intentar token cacheado primero
+  const cached = localStorage.getItem(TOKEN_KEY);
+  if (cached) {
+    // Verificar que no esté vencido (JWT exp claim)
+    try {
+      const payload = JSON.parse(atob(cached.split('.')[1]));
+      if (payload.exp * 1000 > Date.now()) {
+        ID_TOKEN = cached;
+        iniciarApp();
+        return;
+      }
+    } catch(e) {}
+    localStorage.removeItem(TOKEN_KEY);
+  }
+  // Sin token válido → pedir login
   google.accounts.id.initialize({
     client_id: CLIENT_ID,
     callback: onLoginSuccess,
