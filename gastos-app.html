@@ -941,13 +941,17 @@ const DATA_BY_MES = {};
 let   ID_TOKEN = null; // set after login
 
 async function fetchMes(mesNombre) {
-  if (DATA_BY_MES[mesNombre]) return DATA_BY_MES[mesNombre];
+  if (DATA_BY_MES[mesNombre] !== undefined) return DATA_BY_MES[mesNombre];
+  if (!ID_TOKEN) return [];
   try {
-    const res = await fetch(`${SCRIPT_URL}?action=getData&mes=${encodeURIComponent(mesNombre)}&token=${ID_TOKEN}`);
+    const res  = await fetch(`${SCRIPT_URL}?action=getData&mes=${encodeURIComponent(mesNombre)}&token=${ID_TOKEN}`);
     const json = await res.json();
+    if (json.error) { console.warn('Sheet error:', json.error); return []; }
     DATA_BY_MES[mesNombre] = json.rows || [];
   } catch(e) {
-    DATA_BY_MES[mesNombre] = [];
+    console.warn('fetchMes error:', e);
+    // Don't cache errors — allow retry
+    return [];
   }
   return DATA_BY_MES[mesNombre];
 }
@@ -2152,6 +2156,8 @@ const TOKEN_CACHE_KEY = 'gastosapp_id_token';
 
 function iniciarApp(token, profile) {
   ID_TOKEN = token;
+  // Clear any stale cache from before login
+  Object.keys(DATA_BY_MES).forEach(k => delete DATA_BY_MES[k]);
   // Show avatar
   const img = document.getElementById('profileImg');
   if (img && profile.picture) img.src = profile.picture;
