@@ -641,11 +641,11 @@ select.sheet-input { appearance: none; }
       <div class="field-row" style="align-items:end">
         <div>
           <label class="form-label">Fecha</label>
-          <input class="field-input" type="date" id="inputFecha" style="height:46px;display:block">
+          <input class="field-input" type="date" id="inputFecha" style="height:46px;display:block;box-sizing:border-box;-webkit-appearance:none;line-height:normal">
         </div>
         <div>
           <label class="form-label">Cuotas</label>
-          <select class="field-input" id="inputCuota" style="height:46px;display:block">
+          <select class="field-input" id="inputCuota" style="height:46px;display:block;box-sizing:border-box">
             <option value="">Sin cuotas</option>
             <option value="2">2</option><option value="3">3</option>
             <option value="6">6</option><option value="12">12</option>
@@ -895,8 +895,17 @@ const DATA_BY_MES = {};
 async function fetchMes(mesNombre) {
   if (DATA_BY_MES[mesNombre]) return DATA_BY_MES[mesNombre];
   try {
-    const res = await fetch(`${SCRIPT_URL}?action=getData&mes=${encodeURIComponent(mesNombre)}&token=${ID_TOKEN}`);
+    const res  = await fetch(`${SCRIPT_URL}?action=getData&mes=${encodeURIComponent(mesNombre)}&token=${ID_TOKEN}`);
     const json = await res.json();
+    if (json.error === 'No autorizado') {
+      // Token vencido — limpiar y pedir login de nuevo
+      localStorage.removeItem(TOKEN_KEY);
+      ID_TOKEN = null;
+      showLoading(false);
+      google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onLoginSuccess, auto_select: true });
+      google.accounts.id.prompt();
+      return [];
+    }
     DATA_BY_MES[mesNombre] = json.rows || [];
   } catch(e) {
     DATA_BY_MES[mesNombre] = [];
@@ -1452,7 +1461,7 @@ function makeChips(id,data,single=true){
 makeChips('catChips',ALL_CATS);
 makeChips('cardChips',ALL_TARJETAS);
 makeChips('personChips',ALL_PERSONAS);
-document.getElementById('inputFecha').value='2026-02-28';
+document.getElementById('inputFecha').value = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
 
 const descInput=document.getElementById('inputDesc'),acEl=document.getElementById('acList');
 let acIdx=-1;
@@ -1748,11 +1757,14 @@ document.addEventListener('visibilitychange', () => {
 function setScreen(id,btn){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('screen-'+id).classList.add('active');
+  const screen = document.getElementById('screen-'+id);
+  screen.classList.add('active');
   if(btn) btn.classList.add('active');
-  window.scrollTo(0,0);
+  window.scrollTo({top:0,behavior:'instant'});
+  screen.scrollTop = 0;
   if(id==='gastos') renderGastos();
   if(id==='reportes') initReportes();
+  if(id==='cargar') document.getElementById('inputFecha').value = new Date().toLocaleDateString('en-CA');
 }
 
 // ═══════════════════════════════════
