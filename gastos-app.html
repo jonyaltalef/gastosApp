@@ -1524,10 +1524,13 @@ async function submitGasto(){
   try {
     await submitGastoToSheet(row);
     showToast('✓ Gasto guardado en el Sheet');
+    // Reset form
     document.getElementById('inputMonto').value = '';
     document.getElementById('inputDesc').value  = '';
     document.getElementById('inputCuota').value = '';
+    document.getElementById('inputFecha').value = new Date().toLocaleDateString('en-CA');
     document.getElementById('cuotasPreview').classList.remove('show');
+    document.querySelectorAll('#catChips .chip, #cardChips .chip, #personChips .chip').forEach(c => c.classList.remove('selected'));
     updateAutoComplete();
     renderGastos();
   } catch(e) {
@@ -1748,7 +1751,21 @@ function intentarProgramar() {
   }
 }
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') intentarProgramar();
+  if (document.visibilityState !== 'visible') return;
+  intentarProgramar();
+  // Verificar si el token sigue vigente
+  if (ID_TOKEN) {
+    try {
+      const payload = JSON.parse(atob(ID_TOKEN.split('.')[1]));
+      if (payload.exp * 1000 < Date.now()) {
+        // Token vencido — limpiar y pedir login
+        localStorage.removeItem(TOKEN_KEY);
+        ID_TOKEN = null;
+        google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onLoginSuccess, auto_select: true });
+        google.accounts.id.prompt();
+      }
+    } catch(e) {}
+  }
 });
 
 // ═══════════════════════════════════
@@ -1762,6 +1779,8 @@ function setScreen(id,btn){
   if(btn) btn.classList.add('active');
   window.scrollTo({top:0,behavior:'instant'});
   screen.scrollTop = 0;
+  if(id==='estemes') renderEsteMes();
+  if(id==='tarjetas') renderTarjetas(getRows(currentMesIdx));
   if(id==='gastos') renderGastos();
   if(id==='reportes') initReportes();
   if(id==='cargar') document.getElementById('inputFecha').value = new Date().toLocaleDateString('en-CA');
