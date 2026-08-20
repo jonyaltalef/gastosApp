@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Gastos app · Demo</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gastos Demo">
+<meta name="theme-color" content="#0f0f11">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#000000;--bg2:#1c1c1e;--bg3:#2c2c2e;--bg4:#3a3a3c;
+  --separator:rgba(84,84,88,0.65);--accent:#c8f060;--accent-dim:rgba(200,240,96,0.15);
+  --red:#ff453a;--blue:#0a84ff;--text:#ffffff;--text2:rgba(235,235,245,0.6);--text3:rgba(235,235,245,0.3);
+  --mono:'SF Mono','Courier New',monospace;--sans:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;
+  --radius:16px;--radius-sm:12px;--radius-xs:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overscroll-behavior:none;}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);max-width:430px;margin:0 auto;overflow-x:hidden;padding-top:env(safe-area-inset-top);}
+.loading-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;opacity:0;pointer-events:none;transition:opacity 0.25s;}
+.loading-overlay.show{opacity:1;pointer-events:all;}
+.spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,0.15);border-top-color:var(--accent);border-radius:50%;animation:spin 0.65s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-label{font-size:14px;color:var(--text2);font-weight:500;}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:rgba(28,28,30,0.92);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);border-top:0.5px solid var(--separator);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom);}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0 4px;background:none;border:none;color:var(--text3);font-family:var(--sans);font-size:10px;font-weight:500;letter-spacing:-0.01em;cursor:pointer;transition:color 0.15s;}
+.nav-btn.active{color:var(--accent);}
+.nav-btn svg{width:24px;height:24px;}
+.screen{display:none;padding-bottom:calc(60px + env(safe-area-inset-bottom));}
+.screen.active{display:block;animation:fadeUp 0.22s cubic-bezier(0.2,0,0,1);}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+.header{padding:16px 20px 8px;}
+.header-label{font-size:12px;font-weight:500;letter-spacing:0.04em;color:var(--accent);margin-bottom:4px;text-transform:uppercase;}
+.header-title{font-size:32px;font-weight:700;letter-spacing:-0.04em;line-height:1.1;}
+.header-top{display:flex;align-items:flex-start;justify-content:space-between;}
+.header-sub{font-size:14px;color:var(--text2);margin-top:4px;font-weight:400;}
+.demo-badge{background:rgba(200,240,96,0.15);color:var(--accent);font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:0.04em;margin-top:6px;}
+.month-selector{display:flex;align-items:center;margin:8px 16px 12px;background:var(--bg2);border-radius:var(--radius-sm);}
+.month-arrow{width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--accent);cursor:pointer;transition:opacity 0.15s;}
+.month-arrow:disabled{color:var(--text3);}
+.month-name{flex:1;text-align:center;font-size:15px;font-weight:600;letter-spacing:-0.02em;}
+.month-year{font-size:12px;color:var(--text2);font-weight:400;margin-left:4px;}
+.big-card{margin:0 16px 10px;background:var(--bg2);border-radius:var(--radius);padding:20px;position:relative;overflow:hidden;}
+.big-card::before{content:'';position:absolute;top:-30px;right:-30px;width:140px;height:140px;background:radial-gradient(circle,rgba(200,240,96,0.12) 0%,transparent 70%);pointer-events:none;}
+.big-label{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:6px;letter-spacing:-0.01em;}
+.big-amount{font-family:var(--mono);font-size:38px;font-weight:600;letter-spacing:-0.03em;line-height:1;}
+.big-amount-prefix{font-size:20px;color:var(--text2);margin-right:2px;font-weight:400;}
+.big-meta{margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;}
+.big-meta-item{font-size:12px;color:var(--text2);}
+.big-meta-item b{color:var(--accent);font-weight:600;}
+.comp-row{display:flex;gap:8px;margin:0 16px 12px;}
+.comp-card{flex:1;background:var(--bg2);border-radius:var(--radius-sm);padding:12px 14px;}
+.comp-label{font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:500;}
+.comp-val{font-family:var(--mono);font-size:17px;font-weight:600;letter-spacing:-0.02em;}
+.comp-val.up{color:var(--red);}
+.comp-val.down{color:var(--accent);}
+.comp-val.neutral{color:var(--text2);}
+.comp-diff{font-size:11px;color:var(--text3);margin-top:3px;}
+.week-chart{margin:0 16px 16px;background:var(--bg2);border-radius:var(--radius);padding:16px;}
+.week-bars{display:flex;align-items:flex-end;gap:8px;height:90px;}
+.week-col{flex:1;display:flex;flex-direction:column;align-items:center;cursor:pointer;}
+.week-bar-wrap{flex:1;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;}
+.week-bar-label{font-size:9px;color:var(--text3);height:13px;transition:color 0.2s;white-space:nowrap;font-weight:500;}
+.week-col.sel .week-bar-label{color:var(--accent);}
+.week-bar{width:100%;border-radius:4px 4px 0 0;background:var(--bg3);min-height:4px;transition:background 0.2s,opacity 0.2s;}
+.week-col.sel .week-bar{background:var(--accent);}
+.week-chart.has-sel .week-col:not(.sel) .week-bar{opacity:0.3;}
+.week-footer{display:flex;gap:8px;margin-top:8px;}
+.week-foot-col{flex:1;display:flex;justify-content:center;}
+.week-foot-label{font-size:11px;color:var(--text3);transition:color 0.2s;font-weight:500;}
+.section-header{display:flex;justify-content:space-between;align-items:center;padding:0 16px;margin-bottom:8px;margin-top:4px;}
+.section-title{font-size:20px;font-weight:700;letter-spacing:-0.03em;}
+.cat-list{padding:0 16px;margin-bottom:16px;display:flex;flex-direction:column;}
+.cat-item{display:flex;flex-direction:column;gap:7px;padding:12px 0;border-bottom:0.5px solid var(--separator);cursor:pointer;}
+.cat-item:last-child{border-bottom:none;}
+.cat-top{display:flex;justify-content:space-between;align-items:center;}
+.cat-name{font-size:15px;font-weight:500;}
+.cat-amount{font-family:var(--mono);font-size:15px;color:var(--text2);display:flex;align-items:center;gap:6px;}
+.cat-bar-bg{height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;}
+.cat-bar-fill{height:100%;border-radius:2px;transition:width 0.4s ease;}
+.cards-list{padding:0 16px;display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
+.tarjeta-card{background:var(--bg2);border-radius:var(--radius);padding:18px;cursor:pointer;transition:opacity 0.15s;}
+.tarjeta-card:active{opacity:0.75;}
+.tarjeta-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+.tarjeta-name{font-size:16px;font-weight:600;letter-spacing:-0.02em;}
+.tarjeta-sub{font-size:12px;color:var(--text2);margin-top:2px;}
+.tarjeta-badge{font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:4px 10px;border-radius:20px;}
+.tarjeta-amount{font-family:var(--mono);font-size:28px;font-weight:600;letter-spacing:-0.03em;}
+.tarjeta-amount-prefix{font-size:14px;color:var(--text2);margin-right:2px;font-weight:400;}
+.tarjeta-meta{margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;}
+.tarjeta-meta-item{font-size:12px;color:var(--text2);}
+.tarjeta-meta-item b{color:var(--text);font-weight:600;}
+.tarjeta-chevron{margin-top:8px;display:flex;align-items:center;justify-content:flex-end;gap:3px;font-size:12px;color:var(--text3);}
+.card-detail{position:fixed;top:0;left:50%;transform:translateX(-50%) translateY(100%);width:100%;max-width:430px;height:100%;background:var(--bg);z-index:200;transition:transform 0.35s cubic-bezier(0.16,1,0.3,1);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);}
+.card-detail.open{transform:translateX(-50%) translateY(0);}
+.card-detail-header{padding:16px 20px 14px;border-bottom:0.5px solid var(--separator);flex-shrink:0;}
+.card-detail-back{display:flex;align-items:center;gap:4px;background:none;border:none;color:var(--accent);font-family:var(--sans);font-size:16px;font-weight:400;cursor:pointer;margin-bottom:12px;padding:0;}
+.card-detail-title{font-size:24px;font-weight:700;letter-spacing:-0.03em;}
+.card-detail-amount{font-family:var(--mono);font-size:18px;margin-top:3px;color:var(--text2);}
+.card-detail-body{flex:1;overflow-y:auto;padding-bottom:calc(24px + env(safe-area-inset-bottom));}
+.txn-list{padding:0 16px;display:flex;flex-direction:column;}
+.txn-item{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:0.5px solid var(--separator);cursor:default;}
+.txn-item:last-child{border-bottom:none;}
+.txn-icon{width:40px;height:40px;border-radius:10px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.txn-info{flex:1;min-width:0;}
+.txn-desc{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-0.01em;}
+.txn-meta{font-size:12px;color:var(--text2);margin-top:2px;}
+.txn-right{text-align:right;flex-shrink:0;}
+.txn-amount{font-family:var(--mono);font-size:15px;font-weight:600;letter-spacing:-0.02em;}
+.txn-cuota{font-size:10px;color:var(--text3);margin-top:2px;}
+.txn-empty{text-align:center;padding:60px 20px;color:var(--text3);font-size:15px;}
+.gastos-header{padding:20px 16px 0;}
+.gastos-title{font-size:32px;font-weight:700;letter-spacing:-0.04em;margin-bottom:3px;}
+.gastos-subtitle{font-size:14px;color:var(--text2);margin-bottom:12px;min-height:18px;}
+.filter-bar{display:flex;gap:8px;margin-bottom:10px;}
+.search-wrap{flex:1;position:relative;}
+.search-input{width:100%;background:var(--bg2);border:none;border-radius:var(--radius-sm);padding:10px 14px 10px 36px;color:var(--text);font-family:var(--sans);font-size:15px;outline:none;}
+.search-input::placeholder{color:var(--text3);}
+.search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;}
+.filter-btn{background:var(--bg2);border:none;border-radius:var(--radius-sm);padding:0 14px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:6px;font-family:var(--sans);font-size:13px;font-weight:500;white-space:nowrap;height:40px;}
+.sort-btn{background:var(--bg2);border:none;border-radius:var(--radius-sm);padding:0 11px;color:var(--text2);cursor:pointer;display:flex;align-items:center;height:40px;}
+.rep-section{margin:0 0 24px;}
+.rep-section-title{font-size:20px;font-weight:700;letter-spacing:-0.03em;padding:0 16px;margin-bottom:12px;}
+.rep-months-scroll{display:flex;gap:10px;padding:0 16px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
+.rep-months-scroll::-webkit-scrollbar{display:none;}
+.rep-month-card{flex-shrink:0;width:140px;scroll-snap-align:start;background:var(--bg2);border-radius:var(--radius);padding:16px;cursor:pointer;transition:opacity 0.15s;position:relative;overflow:hidden;border:1.5px solid transparent;}
+.rep-month-card:active{opacity:0.7;}
+.rep-month-card.current{border-color:var(--accent);}
+.rep-month-card::before{content:'';position:absolute;top:-20px;right:-20px;width:80px;height:80px;background:radial-gradient(circle,rgba(200,240,96,0.08) 0%,transparent 70%);pointer-events:none;}
+.rep-month-name{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px;}
+.rep-month-total{font-family:var(--mono);font-size:22px;font-weight:700;letter-spacing:-0.03em;line-height:1;}
+.rep-month-delta{display:flex;align-items:center;gap:4px;margin-top:8px;font-size:12px;font-weight:600;}
+.rep-month-delta.up{color:var(--red);}
+.rep-month-delta.down{color:var(--accent);}
+.rep-month-delta.neutral{color:var(--text3);}
+.rep-month-txns{font-size:11px;color:var(--text3);margin-top:3px;}
+.rep-sparkline{width:48px;height:24px;margin-left:8px;}
+.empty-state{text-align:center;padding:70px 30px;color:var(--text3);}
+.toast{position:fixed;bottom:calc(80px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(16px);background:var(--bg3);color:var(--text);font-size:14px;font-weight:500;padding:12px 20px;border-radius:24px;opacity:0;transition:all 0.3s cubic-bezier(0.16,1,0.3,1);pointer-events:none;white-space:nowrap;z-index:300;box-shadow:0 8px 32px rgba(0,0,0,0.5);}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.form-wrap{padding:16px;}
+.form-section{margin-bottom:24px;}
+.form-label{font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--text2);margin-bottom:10px;display:block;}
+.amount-input-wrap{background:var(--bg2);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;gap:8px;}
+.amount-prefix{font-family:var(--mono);font-size:26px;color:var(--text3);}
+.amount-input{background:none;border:none;outline:none;font-family:var(--mono);font-size:34px;font-weight:600;color:var(--text);width:100%;letter-spacing:-0.02em;}
+.chips{display:flex;flex-wrap:wrap;gap:8px;}
+.chip{padding:7px 14px;border-radius:20px;border:1.5px solid var(--bg3);background:var(--bg2);color:var(--text2);font-size:14px;font-weight:500;cursor:pointer;font-family:var(--sans);transition:all 0.15s;}
+.chip.selected{background:var(--accent);border-color:var(--accent);color:#000;}
+.field-input{width:100%;background:var(--bg2);border:none;border-radius:var(--radius-sm);padding:13px 16px;color:var(--text);font-family:var(--sans);font-size:15px;outline:none;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+select.field-input{appearance:none;}
+.submit-btn{width:100%;padding:16px;background:var(--accent);border:none;border-radius:var(--radius);font-family:var(--sans);font-size:16px;font-weight:700;color:#000;cursor:pointer;margin-top:8px;letter-spacing:-0.01em;transition:opacity 0.15s;}
+.submit-btn:active{opacity:0.8;}
+.demo-notice{background:rgba(200,240,96,0.08);border:1px solid rgba(200,240,96,0.2);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--accent);line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-label" id="loadingLabel">Cargando...</div>
+</div>
+
+<!-- RESUMEN -->
+<div class="screen active" id="screen-estemes">
+  <div class="header">
+    <div class="header-top">
+      <div>
+        <div class="header-label" id="emLabel">Cargando...</div>
+        <div class="header-title">Resumen</div>
+      </div>
+      <div class="demo-badge">DEMO</div>
+    </div>
+    <div class="header-sub" id="emSub"></div>
+  </div>
+  <div class="month-selector">
+    <button class="month-arrow" id="btnPrevMes" onclick="cambiarMes(-1)">
+      <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="month-name" id="monthName"></div>
+    <button class="month-arrow" id="btnNextMes" onclick="cambiarMes(1)">
+      <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
+  <div class="big-card">
+    <div class="big-label">Total gastado</div>
+    <div class="big-amount"><span class="big-amount-prefix">$</span><span id="bigTotal">—</span></div>
+    <div class="big-meta" id="bigMeta"></div>
+  </div>
+  <div class="comp-row" id="compRow"></div>
+  <div class="section-header"><div class="section-title">Por semana</div></div>
+  <div class="week-chart"><div class="week-bars" id="weekBars"></div><div class="week-footer" id="weekFooter"></div></div>
+  <div class="section-header"><div class="section-title" id="catSectionTitle">Por categoría</div></div>
+  <div class="cat-list" id="catList"></div>
+  <div class="section-header" style="margin-top:4px"><div class="section-title">Por tarjeta</div></div>
+  <div class="cat-list" id="tarjetaResList"></div>
+</div>
+
+<!-- TARJETAS -->
+<div class="screen" id="screen-tarjetas">
+  <div class="header">
+    <div class="header-label" id="tLabel">—</div>
+    <div class="header-title">Tarjetas</div>
+    <div class="header-sub">Resumen por medio de pago</div>
+  </div>
+  <div class="month-selector" style="margin:0 20px 16px">
+    <button class="month-arrow" id="tBtnPrev" onclick="cambiarMes(-1)">
+      <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="month-name" id="tMonthName"></div>
+    <button class="month-arrow" id="tBtnNext" onclick="cambiarMes(1)">
+      <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
+  <div class="cards-list" id="cardsList"></div>
+</div>
+
+<!-- CARGAR (solo visual, no guarda nada) -->
+<div class="screen" id="screen-cargar">
+  <div class="header">
+    <div class="header-label">Nuevo gasto</div>
+    <div class="header-title">Cargar</div>
+  </div>
+  <div class="form-wrap">
+    <div class="demo-notice">✦ Modo demo — los gastos no se guardan</div>
+    <div class="form-section">
+      <label class="form-label">Monto</label>
+      <div class="amount-input-wrap">
+        <div class="amount-prefix">$</div>
+        <input class="amount-input" type="text" inputmode="decimal" placeholder="0" id="inputMonto">
+      </div>
+    </div>
+    <div class="form-section">
+      <label class="form-label">Categoría</label>
+      <div class="chips" id="catChips"></div>
+    </div>
+    <div class="form-section">
+      <label class="form-label">Tarjeta</label>
+      <div class="chips" id="cardChips"></div>
+    </div>
+    <div class="form-section">
+      <label class="form-label">Descripción</label>
+      <input class="field-input" type="text" placeholder="Ej: SUPERMERCADO...">
+    </div>
+    <div class="form-section">
+      <div class="field-row" style="align-items:end">
+        <div>
+          <label class="form-label">Fecha</label>
+          <input class="field-input" type="date" id="inputFecha" style="height:46px;display:block;box-sizing:border-box;-webkit-appearance:none;">
+        </div>
+        <div>
+          <label class="form-label">Cuotas</label>
+          <select class="field-input" style="height:46px;display:block;box-sizing:border-box;">
+            <option>Sin cuotas</option><option>2</option><option>3</option><option>6</option><option>12</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="form-section">
+      <label class="form-label">Persona</label>
+      <div class="chips" id="personChips"></div>
+    </div>
+    <button class="submit-btn" onclick="showToast('✓ Gasto guardado (demo)')">Guardar gasto</button>
+  </div>
+</div>
+
+<!-- GASTOS -->
+<div class="screen" id="screen-gastos">
+  <div class="gastos-header">
+    <div class="gastos-title" id="gastosTitle">Gastos</div>
+    <div class="gastos-subtitle" id="gastosSubtitle"></div>
+    <div class="month-selector" style="margin:0 0 12px">
+      <button class="month-arrow" id="gBtnPrev" onclick="cambiarMes(-1)">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="month-name" id="gMonthName"></div>
+      <button class="month-arrow" id="gBtnNext" onclick="cambiarMes(1)">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+    <div class="filter-bar">
+      <div class="search-wrap">
+        <svg class="search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input class="search-input" type="text" placeholder="Buscar..." id="searchInput">
+      </div>
+      <button class="filter-btn">
+        <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Filtrar
+      </button>
+      <button class="sort-btn">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="txn-list" id="txnList"></div>
+</div>
+
+<!-- REPORTES -->
+<div class="screen" id="screen-reportes">
+  <div class="header">
+    <div class="header-label" id="rLabel">2026</div>
+    <div class="header-title">Reportes</div>
+    <div class="header-sub" id="rSub"></div>
+  </div>
+  <div id="reportesContent"></div>
+</div>
+
+<!-- CARD DETAIL -->
+<div class="card-detail" id="cardDetail">
+  <div class="card-detail-header">
+    <button class="card-detail-back" onclick="closeCardDetail()">
+      <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      Tarjetas
+    </button>
+    <div class="card-detail-title" id="cdTitle"></div>
+    <div class="card-detail-amount" id="cdAmount"></div>
+  </div>
+  <div class="card-detail-body">
+    <div style="padding:16px 20px 0">
+      <div class="section-header" style="padding:0;margin-bottom:10px"><div class="section-title">Por categoría</div></div>
+      <div id="cdCatList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px"></div>
+      <div class="section-header" style="padding:0;margin-bottom:10px">
+        <div class="section-title" id="cdTxnTitle">Movimientos</div>
+      </div>
+    </div>
+    <div class="txn-list" id="cdTxnList"></div>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="setScreen('estemes',this)">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    Resumen
+  </button>
+  <button class="nav-btn" onclick="setScreen('tarjetas',this)">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+    Tarjetas
+  </button>
+  <button class="nav-btn" onclick="setScreen('cargar',this)">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    Cargar
+  </button>
+  <button class="nav-btn" onclick="setScreen('gastos',this)">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>
+    Gastos
+  </button>
+  <button class="nav-btn" onclick="setScreen('reportes',this)">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Reportes
+  </button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const ALL_CATS = ['Gastos fijos','Día a día','Mila','Vida social','Transporte','Indumentaria','Deco','Hogar','Regalos','Deportes','Cuidado personal','Viajes','Impuestos'];
+const ALL_TARJETAS = ['Débito','Efectivo','Visa Santander','Visa BNA','Amex Santander','MC MP Diego','MC Galicia','Visa Galicia','Visa BBVA','Visa Macro','MC BNA'];
+const ALL_PERSONAS = ['Choni','Mirta','Gerardo','Normy','Otros','Diego'];
+const CAT_ICONS = {'Gastos fijos':'🏠','Día a día':'🛒','Mila':'🐾','Vida social':'🍕','Transporte':'⛽','Indumentaria':'👕','Deco':'🪴','Hogar':'🔧','Regalos':'🎁','Deportes':'⚽','Cuidado personal':'💊','Viajes':'🚗','Impuestos':'📋'};
+const CARD_META = {
+  'Débito':{color:'#4a9eff',label:'DÉBITO'},'Efectivo':{color:'#9090a0',label:'EFECTIVO'},
+  'Visa Santander':{color:'#ff4a4a',label:'VISA'},'Amex Santander':{color:'#c43030',label:'AMEX'},
+  'Visa BNA':{color:'#2272d4',label:'VISA'},'MC Galicia':{color:'#ff8c00',label:'MASTERCARD'},
+  'Visa Galicia':{color:'#ffaa33',label:'VISA'},'MC MP Diego':{color:'#00b1ea',label:'MASTERCARD'},
+  'Visa BBVA':{color:'#0f3f8f',label:'VISA'},'Visa Macro':{color:'#e8b800',label:'VISA'},
+  'MC BNA':{color:'#6ab0ff',label:'MASTERCARD'}
+};
+
+// ─── DATOS DEMO ───
+const DEMO_DATA = {
+  'Enero': [
+    {tarjeta:'Visa Santander',fecha:'2026-01-03',cat:'Gastos fijos',desc:'EXPENSAS',cuota:'',imp:18500,quien:'Choni',_row:2},
+    {tarjeta:'Débito',fecha:'2026-01-05',cat:'Día a día',desc:'SUPERMERCADO DÍA',cuota:'',imp:9200,quien:'Choni',_row:3},
+    {tarjeta:'Visa Santander',fecha:'2026-01-08',cat:'Gastos fijos',desc:'SPOTIFY',cuota:'',imp:2900,quien:'Choni',_row:4},
+    {tarjeta:'Efectivo',fecha:'2026-01-10',cat:'Transporte',desc:'SUBE',cuota:'',imp:3400,quien:'Choni',_row:5},
+    {tarjeta:'Visa Santander',fecha:'2026-01-12',cat:'Vida social',desc:'RESTAURANTE',cuota:'',imp:8700,quien:'Choni',_row:6},
+    {tarjeta:'Débito',fecha:'2026-01-14',cat:'Mila',desc:'VETERINARIA',cuota:'',imp:5600,quien:'Choni',_row:7},
+    {tarjeta:'MC Galicia',fecha:'2026-01-17',cat:'Indumentaria',desc:'TIENDA ROPA',cuota:'3',imp:6300,quien:'Choni',_row:8},
+    {tarjeta:'Visa Santander',fecha:'2026-01-20',cat:'Día a día',desc:'FARMACIA',cuota:'',imp:2100,quien:'Choni',_row:9},
+    {tarjeta:'Débito',fecha:'2026-01-22',cat:'Hogar',desc:'FERRETERÍA',cuota:'',imp:4500,quien:'Choni',_row:10},
+    {tarjeta:'Visa BNA',fecha:'2026-01-24',cat:'Cuidado personal',desc:'PELUQUERÍA',cuota:'',imp:5200,quien:'Choni',_row:11},
+    {tarjeta:'Débito',fecha:'2026-01-27',cat:'Día a día',desc:'VERDULERÍA',cuota:'',imp:3800,quien:'Choni',_row:12},
+    {tarjeta:'Visa Santander',fecha:'2026-01-29',cat:'Deportes',desc:'GYM',cuota:'',imp:6500,quien:'Choni',_row:13},
+  ],
+  'Febrero': [
+    {tarjeta:'Visa Santander',fecha:'2026-02-02',cat:'Gastos fijos',desc:'EXPENSAS',cuota:'',imp:18500,quien:'Choni',_row:2},
+    {tarjeta:'Débito',fecha:'2026-02-04',cat:'Día a día',desc:'SUPERMERCADO DÍA',cuota:'',imp:11300,quien:'Choni',_row:3},
+    {tarjeta:'MC Galicia',fecha:'2026-02-06',cat:'Vida social',desc:'CINE',cuota:'',imp:4200,quien:'Choni',_row:4},
+    {tarjeta:'Visa Santander',fecha:'2026-02-08',cat:'Gastos fijos',desc:'NETFLIX',cuota:'',imp:3800,quien:'Choni',_row:5},
+    {tarjeta:'Efectivo',fecha:'2026-02-10',cat:'Transporte',desc:'NAFTA',cuota:'',imp:7600,quien:'Choni',_row:6},
+    {tarjeta:'Débito',fecha:'2026-02-12',cat:'Mila',desc:'COMIDA MASCOTA',cuota:'',imp:4100,quien:'Choni',_row:7},
+    {tarjeta:'Visa Santander',fecha:'2026-02-14',cat:'Vida social',desc:'CAFE',cuota:'',imp:1800,quien:'Choni',_row:8},
+    {tarjeta:'MC Galicia',fecha:'2026-02-17',cat:'Hogar',desc:'REPARACIÓN',cuota:'',imp:9500,quien:'Choni',_row:9},
+    {tarjeta:'Visa BNA',fecha:'2026-02-19',cat:'Cuidado personal',desc:'FARMACIA',cuota:'',imp:2700,quien:'Choni',_row:10},
+    {tarjeta:'Débito',fecha:'2026-02-21',cat:'Día a día',desc:'PANADERÍA',cuota:'',imp:1500,quien:'Choni',_row:11},
+    {tarjeta:'Visa Santander',fecha:'2026-02-24',cat:'Deportes',desc:'GYM',cuota:'',imp:6500,quien:'Choni',_row:12},
+    {tarjeta:'Efectivo',fecha:'2026-02-26',cat:'Transporte',desc:'TAXI',cuota:'',imp:3200,quien:'Choni',_row:13},
+    {tarjeta:'MC Galicia',fecha:'2026-02-27',cat:'Regalos',desc:'REGALO CUMPLE',cuota:'',imp:8500,quien:'Choni',_row:14},
+  ],
+  'Marzo': [
+    {tarjeta:'Visa Santander',fecha:'2026-03-02',cat:'Gastos fijos',desc:'EXPENSAS',cuota:'',imp:19200,quien:'Choni',_row:2},
+    {tarjeta:'Débito',fecha:'2026-03-05',cat:'Día a día',desc:'SUPERMERCADO',cuota:'',imp:12800,quien:'Choni',_row:3},
+    {tarjeta:'Visa Santander',fecha:'2026-03-07',cat:'Gastos fijos',desc:'SPOTIFY',cuota:'',imp:2900,quien:'Choni',_row:4},
+    {tarjeta:'MC Galicia',fecha:'2026-03-09',cat:'Indumentaria',desc:'ZAPATILLAS',cuota:'6',imp:14400,quien:'Choni',_row:5},
+    {tarjeta:'Efectivo',fecha:'2026-03-11',cat:'Transporte',desc:'NAFTA',cuota:'',imp:8200,quien:'Choni',_row:6},
+    {tarjeta:'Visa BNA',fecha:'2026-03-13',cat:'Vida social',desc:'ASADO',cuota:'',imp:6700,quien:'Choni',_row:7},
+    {tarjeta:'Débito',fecha:'2026-03-15',cat:'Mila',desc:'VETERINARIA',cuota:'',imp:7200,quien:'Choni',_row:8},
+    {tarjeta:'Visa Santander',fecha:'2026-03-18',cat:'Deco',desc:'MUEBLERÍA',cuota:'3',imp:9000,quien:'Choni',_row:9},
+    {tarjeta:'MC Galicia',fecha:'2026-03-20',cat:'Día a día',desc:'FARMACIA',cuota:'',imp:2300,quien:'Choni',_row:10},
+    {tarjeta:'Débito',fecha:'2026-03-23',cat:'Cuidado personal',desc:'PELUQUERÍA',cuota:'',imp:5500,quien:'Choni',_row:11},
+    {tarjeta:'Visa Santander',fecha:'2026-03-25',cat:'Deportes',desc:'GYM',cuota:'',imp:6500,quien:'Choni',_row:12},
+    {tarjeta:'Efectivo',fecha:'2026-03-27',cat:'Transporte',desc:'UBER',cuota:'',imp:2800,quien:'Choni',_row:13},
+    {tarjeta:'Visa BNA',fecha:'2026-03-29',cat:'Vida social',desc:'BAR',cuota:'',imp:4600,quien:'Choni',_row:14},
+  ],
+  'Abril': [
+    {tarjeta:'Visa Santander',fecha:'2026-04-01',cat:'Gastos fijos',desc:'EXPENSAS',cuota:'',imp:19200,quien:'Choni',_row:2},
+    {tarjeta:'Débito',fecha:'2026-04-03',cat:'Día a día',desc:'SUPERMERCADO',cuota:'',imp:10500,quien:'Choni',_row:3},
+    {tarjeta:'Visa Santander',fecha:'2026-04-05',cat:'Gastos fijos',desc:'NETFLIX',cuota:'',imp:3800,quien:'Choni',_row:4},
+    {tarjeta:'Efectivo',fecha:'2026-04-07',cat:'Transporte',desc:'NAFTA',cuota:'',imp:7900,quien:'Choni',_row:5},
+    {tarjeta:'MC Galicia',fecha:'2026-04-09',cat:'Viajes',desc:'HOTEL',cuota:'',imp:22000,quien:'Choni',_row:6},
+    {tarjeta:'Débito',fecha:'2026-04-12',cat:'Día a día',desc:'VERDULERÍA',cuota:'',imp:2800,quien:'Choni',_row:7},
+    {tarjeta:'Visa BNA',fecha:'2026-04-14',cat:'Vida social',desc:'RESTAURANTE',cuerta:'',imp:7300,quien:'Choni',_row:8},
+    {tarjeta:'Visa Santander',fecha:'2026-04-17',cat:'Hogar',desc:'LIMPIEZA',cuota:'',imp:4200,quien:'Choni',_row:9},
+    {tarjeta:'Débito',fecha:'2026-04-19',cat:'Mila',desc:'COMIDA MASCOTA',cuota:'',imp:4100,quien:'Choni',_row:10},
+    {tarjeta:'MC Galicia',fecha:'2026-04-22',cat:'Deportes',desc:'GYM',cuota:'',imp:6500,quien:'Choni',_row:11},
+    {tarjeta:'Visa Santander',fecha:'2026-04-24',cat:'Cuidado personal',desc:'FARMACIA',cuota:'',imp:1900,quien:'Choni',_row:12},
+    {tarjeta:'Efectivo',fecha:'2026-04-27',cat:'Transporte',desc:'TAXI',cuota:'',imp:3500,quien:'Choni',_row:13},
+  ],
+  'Mayo': [
+    {tarjeta:'Visa Santander',fecha:'2026-05-02',cat:'Gastos fijos',desc:'EXPENSAS',cuota:'',imp:19200,quien:'Choni',_row:2},
+    {tarjeta:'Débito',fecha:'2026-05-04',cat:'Día a día',desc:'SUPERMERCADO',cuota:'',imp:13200,quien:'Choni',_row:3},
+    {tarjeta:'Visa Santander',fecha:'2026-05-06',cat:'Gastos fijos',desc:'SPOTIFY',cuota:'',imp:2900,quien:'Choni',_row:4},
+    {tarjeta:'MC Galicia',fecha:'2026-05-08',cat:'Indumentaria',desc:'ROPA INVIERNO',cuota:'3',imp:11700,quien:'Choni',_row:5},
+    {tarjeta:'Efectivo',fecha:'2026-05-10',cat:'Transporte',desc:'NAFTA',cuota:'',imp:8700,quien:'Choni',_row:6},
+    {tarjeta:'Visa Santander',fecha:'2026-05-12',cat:'Gastos fijos',desc:'NETFLIX',cuota:'',imp:3800,quien:'Choni',_row:7},
+    {tarjeta:'Débito',fecha:'2026-05-14',cat:'Mila',desc:'VETERINARIA',cuota:'',imp:6100,quien:'Choni',_row:8},
+    {tarjeta:'Visa BNA',fecha:'2026-05-16',cat:'Vida social',desc:'CENA',cuota:'',imp:8900,quien:'Choni',_row:9},
+    {tarjeta:'MC Galicia',fecha:'2026-05-19',cat:'Hogar',desc:'PLOMERO',cuota:'',imp:7500,quien:'Choni',_row:10},
+    {tarjeta:'Débito',fecha:'2026-05-21',cat:'Día a día',desc:'FARMACIA',cuota:'',imp:2400,quien:'Choni',_row:11},
+    {tarjeta:'Visa Santander',fecha:'2026-05-23',cat:'Deportes',desc:'GYM',cuota:'',imp:6500,quien:'Choni',_row:12},
+    {tarjeta:'Efectivo',fecha:'2026-05-26',cat:'Transporte',desc:'UBER',cuota:'',imp:3100,quien:'Choni',_row:13},
+    {tarjeta:'Visa BNA',fecha:'2026-05-28',cat:'Cuidado personal',desc:'PELUQUERÍA',cuota:'',imp:5500,quien:'Choni',_row:14},
+  ]
+};
+
+// Poblar DATA_BY_MES
+const DATA_BY_MES = {};
+Object.keys(DEMO_DATA).forEach(m => DATA_BY_MES[m] = DEMO_DATA[m]);
+
+let currentMesIdx = 4; // Mayo
+let selectedWeek = null;
+let cdTarjeta = null;
+
+function fmt(n){return Math.abs(n).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function fmtFecha(iso){if(!iso)return'Sin fecha';const[,m,d]=iso.split('-');return`${parseInt(d)} ${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][+m-1]}`;}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+function catColor(name){const p=['#c8f060','#60c8f0','#f060a8','#f0a860','#a860f0','#60f0c8','#f0e060','#60a8f0','#f08060','#60f088','#f0c860','#c860f0','#60f0a8'];const i=ALL_CATS.indexOf(name)%p.length;return p[i<0?0:i];}
+function weekOf(iso){if(!iso)return null;const d=parseInt(iso.split('-')[2]);return d<=7?0:d<=14?1:d<=21?2:3;}
+function getRows(mesIdx){return DATA_BY_MES[MESES[mesIdx]]||[];}
+function rowTotal(rows){return rows.reduce((s,r)=>s+r.imp,0);}
+function aggCats(rows){const map={};rows.forEach(r=>{if(!map[r.cat])map[r.cat]=0;map[r.cat]+=r.imp;});return Object.entries(map).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([name,amount])=>({name,amount}));}
+
+function showLoading(on){document.getElementById('loadingOverlay').classList.toggle('show',on);}
+
+function renderEsteMes(){
+  const mesNombre=MESES[currentMesIdx];
+  const rows=getRows(currentMesIdx);
+  const prevRows=getRows(currentMesIdx-1);
+  const myRows=rows.filter(r=>r.quien==='Choni');
+  const myPrevRows=prevRows.filter(r=>r.quien==='Choni');
+  const total=rowTotal(myRows);
+  const prevTotal=rowTotal(myPrevRows);
+
+  document.getElementById('emLabel').textContent=mesNombre+' 2026';
+  document.getElementById('tLabel').textContent=mesNombre+' 2026';
+  const monthHTML=`${mesNombre} <span class="month-year">2026</span>`;
+  ['monthName','tMonthName','gMonthName'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=monthHTML;});
+  ['btnPrevMes','tBtnPrev','gBtnPrev'].forEach(id=>document.getElementById(id).disabled=currentMesIdx===0);
+  ['btnNextMes','tBtnNext','gBtnNext'].forEach(id=>document.getElementById(id).disabled=currentMesIdx===11);
+
+  document.getElementById('bigTotal').textContent=fmt(total);
+  const cuotas=myRows.filter(r=>r.cuota).length;
+  document.getElementById('bigMeta').innerHTML=`<div class="big-meta-item">Cuotas activas: <b>${cuotas}</b></div><div class="big-meta-item">Movimientos: <b>${myRows.length}</b></div>`;
+
+  if(myPrevRows.length&&myRows.length){
+    const diff=total-prevTotal;const pct=prevTotal?Math.round(Math.abs(diff)/prevTotal*100):0;const up=diff>0;
+    const prevNombre=MESES[currentMesIdx-1];
+    document.getElementById('compRow').innerHTML=`<div class="comp-card"><div class="comp-label">${prevNombre}</div><div class="comp-val neutral">$${fmt(prevTotal)}</div></div><div class="comp-card"><div class="comp-label">Variación</div><div class="comp-val ${up?'up':'down'}">${up?'▲':'▼'} ${pct}%</div><div class="comp-diff">${up?'+':'-'}$${fmt(Math.abs(diff))}</div></div>`;
+  } else {
+    document.getElementById('compRow').innerHTML='';
+  }
+
+  // Week chart
+  const mesStr=`2026-${String(currentMesIdx+1).padStart(2,'0')}`;
+  const weekTotals=[0,0,0,0];const weekRows=[[],[],[],[]];
+  myRows.forEach(r=>{if(!r.fecha||!r.fecha.startsWith(mesStr))return;const w=weekOf(r.fecha);if(w!==null){weekTotals[w]+=r.imp;weekRows[w].push(r);}});
+  selectedWeek=null;
+  const wb=document.getElementById('weekBars'),wf=document.getElementById('weekFooter');
+  wb.innerHTML='';wf.innerHTML='';
+  const mx=Math.max(...weekTotals,1);
+  weekTotals.forEach((v,i)=>{
+    const h=Math.round(v/mx*72);
+    const col=document.createElement('div');col.className='week-col';col.dataset.week=i;
+    col.onclick=()=>selectWeek(i,weekRows);
+    col.innerHTML=`<div class="week-bar-wrap"><div class="week-bar-label">${v>0?'$'+fmt(v):''}</div><div class="week-bar" style="height:${Math.max(h,4)}px"></div></div>`;
+    wb.appendChild(col);
+    const fc=document.createElement('div');fc.className='week-foot-col';
+    fc.innerHTML=`<div class="week-foot-label" data-week="${i}" style="color:var(--text3);font-weight:400">S${i+1}</div>`;
+    wf.appendChild(fc);
+  });
+  renderEsteMes._weekRows=weekRows;
+  renderEsteMes._allCats=aggCats(myRows);
+  renderEsteMes._allTarjetas=myRows;
+  renderCatList(renderEsteMes._allCats);
+  renderTarjetaResList(myRows);
+  document.getElementById('emSub').textContent=`${myRows.length} movimientos`;
+  renderTarjetas(rows);
+}
+
+function selectWeek(idx,weekRowsArg){
+  const weekRows=weekRowsArg||renderEsteMes._weekRows;
+  const chart=document.querySelector('.week-chart');
+  if(selectedWeek===idx){selectedWeek=null;chart.classList.remove('has-sel');renderCatList(renderEsteMes._allCats);renderTarjetaResList(renderEsteMes._allTarjetas);}
+  else{selectedWeek=idx;chart.classList.add('has-sel');renderCatList(aggCats(weekRows[idx]));renderTarjetaResList(weekRows[idx]);}
+  document.querySelectorAll('.week-col[data-week]').forEach(col=>col.classList.toggle('sel',selectedWeek===parseInt(col.dataset.week)));
+  document.querySelectorAll('.week-foot-label').forEach(lbl=>{const on=selectedWeek===parseInt(lbl.dataset.week);lbl.style.color=on?'var(--accent)':'var(--text3)';lbl.style.fontWeight=on?'600':'400';});
+}
+
+function renderCatList(cats){
+  const cl=document.getElementById('catList');
+  if(!cats.length){cl.innerHTML='<div style="padding:8px 0;color:var(--text3);font-size:13px">Sin gastos</div>';return;}
+  const max=cats[0].amount;
+  cl.innerHTML=cats.map(c=>`<div class="cat-item"><div class="cat-top"><div class="cat-name">${CAT_ICONS[c.name]||'📦'} ${c.name}</div><div class="cat-amount">$${fmt(c.amount)}<svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" style="color:var(--text3)"><polyline points="9 18 15 12 9 6"/></svg></div></div><div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${Math.round(c.amount/max*100)}%;background:${catColor(c.name)}"></div></div></div>`).join('');
+}
+
+function renderTarjetaResList(rows){
+  const el=document.getElementById('tarjetaResList');if(!el)return;
+  const map={};rows.forEach(r=>{if(!map[r.tarjeta])map[r.tarjeta]=0;map[r.tarjeta]+=r.imp;});
+  const sorted=Object.entries(map).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  if(!sorted.length){el.innerHTML='<div style="padding:4px 0;color:var(--text3);font-size:13px">Sin gastos</div>';return;}
+  const max=sorted[0][1];
+  el.innerHTML=sorted.map(([name,amount])=>{const c=CARD_META[name]||{color:'#9090a0',label:'TARJETA'};
+    return`<div class="cat-item" onclick="openCardDetail('${name.replace(/'/g,"\\'")}')"><div class="cat-top"><div class="cat-name" style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;font-weight:600;letter-spacing:0.06em;padding:2px 7px;border-radius:10px;background:${c.color}22;color:${c.color}">${c.label}</span>${name}</div><div class="cat-amount">$${fmt(amount)}<svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" style="color:var(--text3)"><polyline points="9 18 15 12 9 6"/></svg></div></div><div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${Math.round(amount/max*100)}%;background:${c.color}"></div></div></div>`;
+  }).join('');
+}
+
+function cambiarMes(dir){
+  const avail=Object.keys(DEMO_DATA);
+  const idx=avail.indexOf(MESES[currentMesIdx]);
+  const newIdx=Math.max(0,Math.min(avail.length-1,idx+dir));
+  currentMesIdx=MESES.indexOf(avail[newIdx]);
+  renderEsteMes();renderGastos();
+}
+
+function renderTarjetas(rows){
+  const map={};rows.forEach(r=>{if(!map[r.tarjeta])map[r.tarjeta]={total:0,txns:0};map[r.tarjeta].total+=r.imp;map[r.tarjeta].txns++;});
+  const cl=document.getElementById('cardsList');cl.innerHTML='';
+  ALL_TARJETAS.forEach(name=>{
+    const d=map[name]||{total:0,txns:0};const c=CARD_META[name]||{color:'#9090a0',label:name.toUpperCase()};
+    const hasData=d.txns>0;
+    cl.innerHTML+=`<div class="tarjeta-card" onclick="openCardDetail('${name}')"><div class="tarjeta-top"><div><div class="tarjeta-name">${name}</div><div class="tarjeta-sub">${hasData?d.txns+' transacciones':'Sin movimientos este mes'}</div></div><div class="tarjeta-badge" style="background:${c.color}22;color:${c.color}">${c.label}</div></div><div class="tarjeta-amount" style="color:${hasData?'var(--text)':'var(--text3)'}"><span class="tarjeta-amount-prefix">$</span>${fmt(d.total)}</div>${hasData?`<div class="tarjeta-meta"><div class="tarjeta-meta-item">Cuotas: <b>${rows.filter(r=>r.tarjeta===name&&r.cuota).length}</b></div></div>`:''}<div class="tarjeta-chevron">Ver consumos <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div></div>`;
+  });
+}
+
+function openCardDetail(nombre){
+  cdTarjeta=nombre;const c=CARD_META[nombre]||{color:'#9090a0'};
+  const rows=getRows(currentMesIdx).filter(r=>r.tarjeta===nombre);
+  const total=rowTotal(rows);
+  document.getElementById('cdTitle').innerHTML=`${nombre} <span style="font-size:14px;color:${c.color};font-weight:400">${(CARD_META[nombre]||{}).label||''}</span>`;
+  document.getElementById('cdAmount').innerHTML=`<span style="color:var(--text2);font-size:14px">$ </span>${fmt(total)}`;
+  const cats=aggCats(rows);const cdCatEl=document.getElementById('cdCatList');
+  if(cats.length){const max=cats[0].amount;cdCatEl.innerHTML=cats.map(c=>`<div class="cat-item"><div class="cat-top"><div class="cat-name">${CAT_ICONS[c.name]||'📦'} ${c.name}</div><div class="cat-amount">$${fmt(c.amount)}</div></div><div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${Math.round(c.amount/max*100)}%;background:${catColor(c.name)}"></div></div></div>`).join('');}
+  else{cdCatEl.innerHTML='<div style="color:var(--text3);font-size:13px;padding:4px 0">Sin movimientos este mes</div>';}
+  document.getElementById('cdTxnTitle').textContent=`Movimientos · ${rows.length}`;
+  document.getElementById('cdTxnList').innerHTML=rows.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(r=>`<div class="txn-item"><div class="txn-icon">${CAT_ICONS[r.cat]||'📦'}</div><div class="txn-info"><div class="txn-desc">${r.desc}</div><div class="txn-meta" style="color:${(CARD_META[r.tarjeta]||{color:'#9090a0'}).color};opacity:0.85">${r.tarjeta}</div><div class="txn-meta">${r.quien} · ${fmtFecha(r.fecha)}</div></div><div class="txn-right"><div class="txn-amount">$${fmt(r.imp)}</div>${r.cuota?`<div class="txn-cuota">Cuota ${r.cuota}</div>`:''}</div></div>`).join('');
+  document.getElementById('cardDetail').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeCardDetail(){document.getElementById('cardDetail').classList.remove('open');document.body.style.overflow='';}
+
+function renderGastos(){
+  const rows=getRows(currentMesIdx);
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const data=q?rows.filter(r=>[r.desc,r.cat,r.tarjeta].some(s=>s.toLowerCase().includes(q))):rows;
+  data.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  document.getElementById('gastosTitle').textContent='Gastos';
+  document.getElementById('gastosSubtitle').textContent=`${MESES[currentMesIdx]} 2026 · ${rows.length} movimientos`;
+  document.getElementById('txnList').innerHTML=data.map(r=>`<div class="txn-item"><div class="txn-icon">${CAT_ICONS[r.cat]||'📦'}</div><div class="txn-info"><div class="txn-desc">${r.desc}</div><div class="txn-meta" style="color:${(CARD_META[r.tarjeta]||{color:'#9090a0'}).color};opacity:0.85">${r.tarjeta}</div><div class="txn-meta">${r.quien} · ${fmtFecha(r.fecha)}</div></div><div class="txn-right"><div class="txn-amount">$${fmt(r.imp)}</div>${r.cuota?`<div class="txn-cuota">Cuota ${r.cuota}</div>`:''}</div></div>`).join('');
+}
+document.getElementById('searchInput').addEventListener('input',renderGastos);
+
+// Chips cargar
+function makeChips(id,data){
+  const el=document.getElementById(id);
+  data.forEach((d,i)=>{const c=document.createElement('button');c.className='chip'+(i===0?' selected':'');c.textContent=d;c.type='button';c.onclick=()=>{el.querySelectorAll('.chip').forEach(x=>x.classList.remove('selected'));c.classList.add('selected');};el.appendChild(c);});
+}
+makeChips('catChips',ALL_CATS);
+makeChips('cardChips',ALL_TARJETAS);
+makeChips('personChips',ALL_PERSONAS);
+document.getElementById('inputFecha').value=new Date().toLocaleDateString('en-CA');
+
+// Reportes
+function fmtCompact(n){if(n>=1000000)return'$'+(n/1000000).toFixed(1).replace(/\.0$/,'')+'M';if(n>=1000)return'$'+(n/1000).toFixed(0)+'k';return'$'+fmt(n);}
+function getMesTotals(mes){return(DATA_BY_MES[mes]||[]).reduce((s,r)=>s+(r.imp>0?r.imp:0),0);}
+function getMesByTarjeta(mes){const map={};(DATA_BY_MES[mes]||[]).forEach(r=>{if(r.imp<=0)return;if(!map[r.tarjeta])map[r.tarjeta]=0;map[r.tarjeta]+=r.imp;});return map;}
+function getMesByCategoria(mes){const map={};(DATA_BY_MES[mes]||[]).forEach(r=>{if(r.imp<=0)return;if(!map[r.cat])map[r.cat]=0;map[r.cat]+=r.imp;});return map;}
+function drawSparkline(el,values){
+  const w=48,h=24;const max=Math.max(...values,1);
+  const pts=values.map((v,i)=>{const x=values.length===1?w/2:(i/(values.length-1))*w;const y=h-(v/max)*(h-4)-2;return`${x},${y}`;}).join(' ');
+  el.innerHTML=`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="#c8f060" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/><circle cx="${pts.split(' ').pop().split(',')[0]}" cy="${pts.split(' ').pop().split(',')[1]}" r="2.5" fill="#c8f060"/></svg>`;
+}
+
+const MESES_DEMO = Object.keys(DEMO_DATA);
+let reportesMesIdx = 4;
+
+function initReportes(){
+  document.getElementById('rSub').textContent=`${MESES_DEMO.length} meses con datos`;
+  renderReportes(MESES_DEMO, currentMesIdx);
+}
+
+function renderReportes(meses, selIdx){
+  const selMes=MESES[selIdx];
+  let html='';
+  html+=`<div class="rep-section"><div class="rep-section-title">Comparativa mensual</div><div class="rep-months-scroll" id="repMonthsScroll">`;
+  meses.forEach((mes,i)=>{
+    const mesGlobalIdx=MESES.indexOf(mes);
+    const total=getMesTotals(mes);const prevM=i>0?meses[i-1]:null;const prev=prevM?getMesTotals(prevM):null;
+    const delta=prev?((total-prev)/prev*100):null;const dClass=delta===null?'neutral':delta>5?'up':delta<-5?'down':'neutral';
+    const dSign=delta>0?'+':'';const txns=(DATA_BY_MES[mes]||[]).length;const isSel=mes===selMes;
+    html+=`<div class="rep-month-card${isSel?' current':''}" id="repCard-${mesGlobalIdx}" onclick="navegarDesdeReporte(${mesGlobalIdx})"><div class="rep-month-name">${mes}</div><div class="rep-month-total">${fmtCompact(total)}</div>${delta!==null?`<div class="rep-month-delta ${dClass}">${dClass==='up'?'↑':dClass==='down'?'↓':'·'} ${dSign}${Math.round(delta)}% vs ${prevM.slice(0,3)}</div>`:`<div class="rep-month-delta neutral">Primer mes</div>`}<div class="rep-month-txns">${txns} movimientos</div></div>`;
+  });
+  html+=`</div></div>`;
+
+  const tarjetasConDatos=ALL_TARJETAS.filter(t=>meses.some(m=>(getMesByTarjeta(m)[t]||0)>0));
+  if(tarjetasConDatos.length){
+    const FONT=`-apple-system,'SF Pro Display','Helvetica Neue',sans-serif`;const MONO=`'SF Mono','Courier New',monospace`;
+    html+=`<div class="rep-section"><div class="rep-section-title">Por tarjeta</div><div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 16px"><table style="width:100%;border-collapse:collapse;min-width:${120+meses.length*68+56}px;font-family:${FONT}"><thead><tr><th style="text-align:left;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;padding:10px 0 10px 14px;border-bottom:0.5px solid var(--separator)">Tarjeta</th>${meses.map(m=>`<th style="text-align:right;font-size:11px;font-weight:600;color:${m===selMes?'var(--accent)':'var(--text3)'};text-transform:uppercase;letter-spacing:0.04em;padding:10px 8px 10px 0;border-bottom:0.5px solid var(--separator);white-space:nowrap">${m.slice(0,3)}</th>`).join('')}<th style="width:56px;border-bottom:0.5px solid var(--separator)"></th></tr></thead><tbody>`;
+    tarjetasConDatos.forEach(t=>{
+      const vals=meses.map(m=>getMesByTarjeta(m)[t]||0);const c=CARD_META[t]||{color:'#9090a0',label:'TARJETA'};
+      html+=`<tr><td style="padding:12px 0 12px 14px;border-bottom:0.5px solid var(--separator)"><div style="display:flex;align-items:center;gap:7px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c.color};flex-shrink:0"></span><div><div style="font-size:14px;font-weight:500">${t}</div><div style="font-size:10px;color:var(--text3)">${c.label}</div></div></div></td>${vals.map((v,i)=>`<td style="text-align:right;padding:12px 8px 12px 0;font-family:${MONO};font-size:12px;font-weight:${meses[i]===selMes?'600':'400'};color:${v===0?'var(--text3)':meses[i]===selMes?'var(--text)':'var(--text2)'};border-bottom:0.5px solid var(--separator)">${v>0?fmtCompact(v):'—'}</td>`).join('')}<td style="padding:12px 14px 12px 0;border-bottom:0.5px solid var(--separator)"><div class="rep-sparkline" id="spark-${t.replace(/\s/g,'_')}"></div></td></tr>`;
+    });
+    const totales=meses.map(m=>getMesTotals(m));
+    html+=`<tr style="background:rgba(200,240,96,0.04)"><td style="padding:12px 0 12px 14px;font-size:14px;font-weight:700">Total</td>${totales.map((v,i)=>`<td style="text-align:right;padding:12px 8px 12px 0;font-family:${MONO};font-size:12px;font-weight:700;color:${meses[i]===selMes?'var(--accent)':'var(--text)'}">${fmtCompact(v)}</td>`).join('')}<td style="padding:12px 14px 12px 0"><div class="rep-sparkline" id="spark-TOTAL"></div></td></tr>`;
+    html+=`</tbody></table></div></div>`;
+  }
+
+  const catSorted=ALL_CATS.filter(cat=>meses.some(m=>(getMesByCategoria(m)[cat]||0)>0)).map(cat=>({cat,val:getMesByCategoria(selMes)[cat]||0})).filter(x=>x.val>0).sort((a,b)=>b.val-a.val).map(x=>x.cat);
+  const FONT=`-apple-system,'SF Pro Display','Helvetica Neue',sans-serif`;const MONO=`'SF Mono','Courier New',monospace`;
+  if(catSorted.length){
+    html+=`<div class="rep-section"><div class="rep-section-title">Top categorías</div><div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 16px"><table style="width:100%;border-collapse:collapse;min-width:${120+meses.length*68+56}px;font-family:${FONT}"><thead><tr><th style="text-align:left;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;padding:10px 0 10px 14px;border-bottom:0.5px solid var(--separator)">Categoría</th>${meses.map(m=>`<th style="text-align:right;font-size:11px;font-weight:600;color:${m===selMes?'var(--accent)':'var(--text3)'};text-transform:uppercase;letter-spacing:0.04em;padding:10px 8px 10px 0;border-bottom:0.5px solid var(--separator);white-space:nowrap">${m.slice(0,3)}</th>`).join('')}<th style="width:56px;border-bottom:0.5px solid var(--separator)"></th></tr></thead><tbody>`;
+    catSorted.forEach((cat,i)=>{
+      const vals=meses.map(m=>getMesByCategoria(m)[cat]||0);
+      html+=`<tr><td style="padding:12px 0 12px 14px;border-bottom:${i<catSorted.length-1?'0.5px solid var(--separator)':'none'}"><div style="display:flex;align-items:center;gap:7px"><span style="font-size:10px;font-weight:700;color:var(--text3)">${i+1}</span><span style="font-size:18px">${CAT_ICONS[cat]||'📦'}</span><div style="font-size:14px;font-weight:500">${cat}</div></div></td>${vals.map((v,mi)=>`<td style="text-align:right;padding:12px 8px 12px 0;font-family:${MONO};font-size:12px;font-weight:${meses[mi]===selMes?'600':'400'};color:${v===0?'var(--text3)':meses[mi]===selMes?'var(--text)':'var(--text2)'};border-bottom:${i<catSorted.length-1?'0.5px solid var(--separator)':'none'}">${v>0?fmtCompact(v):'—'}</td>`).join('')}<td style="padding:12px 14px 12px 0;border-bottom:${i<catSorted.length-1?'0.5px solid var(--separator)':'none'}"><div class="rep-sparkline" id="spark-cat-${cat.replace(/\s/g,'_')}"></div></td></tr>`;
+    });
+    html+=`</tbody></table></div></div>`;
+  }
+
+  document.getElementById('reportesContent').innerHTML=html;
+  tarjetasConDatos.forEach(t=>{const el=document.getElementById('spark-'+t.replace(/\s/g,'_'));if(el)drawSparkline(el,meses.map(m=>getMesByTarjeta(m)[t]||0));});
+  const totalEl=document.getElementById('spark-TOTAL');if(totalEl)drawSparkline(totalEl,meses.map(m=>getMesTotals(m)));
+  catSorted.forEach(cat=>{const el=document.getElementById('spark-cat-'+cat.replace(/\s/g,'_'));if(el)drawSparkline(el,meses.map(m=>getMesByCategoria(m)[cat]||0));});
+  setTimeout(()=>{const card=document.getElementById('repCard-'+selIdx);if(card)card.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});},80);
+}
+
+function navegarDesdeReporte(mesIdx){
+  reportesMesIdx=mesIdx;currentMesIdx=mesIdx;
+  const nombre=MESES[mesIdx];const monthHTML=`${nombre} <span class="month-year">2026</span>`;
+  ['monthName','tMonthName','gMonthName'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=monthHTML;});
+  renderReportes(MESES_DEMO,mesIdx);
+}
+
+function setScreen(id,btn){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const screen=document.getElementById('screen-'+id);
+  screen.classList.add('active');
+  if(btn)btn.classList.add('active');
+  window.scrollTo({top:0,behavior:'instant'});
+  screen.scrollTop=0;
+  if(id==='estemes')renderEsteMes();
+  if(id==='tarjetas')renderTarjetas(getRows(currentMesIdx));
+  if(id==='gastos')renderGastos();
+  if(id==='reportes')initReportes();
+  if(id==='cargar')document.getElementById('inputFecha').value=new Date().toLocaleDateString('en-CA');
+}
+
+// INIT
+showLoading(true);
+setTimeout(()=>{
+  renderEsteMes();
+  renderGastos();
+  showLoading(false);
+},600);
+</script>
+</body>
+</html>
