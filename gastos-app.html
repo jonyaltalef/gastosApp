@@ -855,9 +855,10 @@ select.sheet-input { appearance: none; }
 // ═══════════════════════════════════
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-const ALL_CATS = ['Gastos fijos','Día a día','Mila','Vida social','Transporte','Indumentaria','Deco','Hogar','Regalos','Deportes','Cuidado personal','Viajes','Impuestos'];
-const ALL_TARJETAS = ['Débito','Efectivo','Visa Santander','Visa BNA','Amex Santander','MC MP Diego','MC Galicia','Visa Galicia','Visa BBVA','Visa Macro','MC BNA'];
-const ALL_PERSONAS = ['Choni','Mirta','Gerardo','Normy','Otros','Diego'];
+// Defaults — se sobreescriben con los valores del Sheet al iniciar
+let ALL_CATS     = ['Gastos fijos','Día a día','Mila','Vida social','Transporte','Indumentaria','Deco','Hogar','Regalos','Deportes','Cuidado personal','Viajes','Impuestos'];
+let ALL_TARJETAS = ['Débito','Efectivo','Visa Santander','Visa BNA','Amex Santander','MC MP Diego','MC Galicia','Visa Galicia','Visa BBVA','Visa Macro','MC BNA'];
+let ALL_PERSONAS = ['Choni','Mirta','Gerardo','Normy','Otros','Diego'];
 
 const CAT_ICONS = {
   'Gastos fijos':'🏠','Día a día':'🛒','Mila':'🐾','Vida social':'🍕',
@@ -970,8 +971,9 @@ let descHistorial = [];
 let editingRow = null; // { row, mesIdx }
 
 function updateAutoComplete() {
-  const rows = getRows(currentMesIdx);
-  descHistorial = [...new Set(rows.map(r=>r.desc))].sort();
+  // Usar todos los meses que estén cargados en memoria
+  const allRows = Object.values(DATA_BY_MES).flat();
+  descHistorial = [...new Set(allRows.map(r=>r.desc))].filter(Boolean).sort();
 }
 
 // ═══════════════════════════════════
@@ -998,7 +1000,7 @@ function catColor(name){
 function weekOf(iso){
   if(!iso) return null;
   const d=parseInt(iso.split('-')[2]);
-  return d<=7?0:d<=14?1:d<=21?2:3;
+  return d<=7?0:d<=15?1:d<=23?2:3;
 }
 function getRows(mesIdx){
   return DATA_BY_MES[MESES[mesIdx]]||[];
@@ -1079,12 +1081,19 @@ function renderEsteMes(){
     compEl.innerHTML = '';
   }
 
-  // Week chart — only Choni, only rows whose fecha belongs to this month
-  const mesStr = `2026-${String(currentMesIdx + 1).padStart(2,'0')}`; // e.g. "2026-02"
+  // Week chart — only Choni, only "gasto básico" rows
+  // Incluye: cualquier gasto con Débito o Efectivo, O con categoría Día a día/Vida social/Mila
+  const CATS_SEMANA = ['Día a día', 'Vida social', 'Mila'];
+  const TARJETAS_SEMANA = ['Débito', 'Efectivo'];
+  const mesStr = `2026-${String(currentMesIdx + 1).padStart(2,'0')}`;
   const weekTotals = [0,0,0,0];
   const weekRows   = [[],[],[],[]];
   myRows.forEach(r=>{
-    if(!r.fecha || !r.fecha.startsWith(mesStr)) return; // skip other months & no-date rows
+    if(!r.fecha || !r.fecha.startsWith(mesStr)) return;
+    if(r.imp <= 0) return;
+    const esTarjetaBásica = TARJETAS_SEMANA.includes(r.tarjeta);
+    const esCatBásica     = CATS_SEMANA.includes(r.cat);
+    if(!esTarjetaBásica && !esCatBásica) return;
     const w=weekOf(r.fecha);
     if(w!==null){weekTotals[w]+=r.imp; weekRows[w].push(r);}
   });
@@ -1097,16 +1106,17 @@ function renderEsteMes(){
   const wb=document.getElementById('weekBars'), wf=document.getElementById('weekFooter');
   wb.innerHTML=''; wf.innerHTML='';
   const mx=Math.max(...weekTotals,1);
+  const WEEK_LABELS = ['1-7','8-15','16-23','24-fin'];
   weekTotals.forEach((v,i)=>{
     const h=Math.round(v/mx*72);
     const col=document.createElement('div');
-    col.className='week-col'; // never pre-selected
+    col.className='week-col';
     col.dataset.week=i;
     col.onclick=()=>selectWeek(i,weekRows,mesNombre);
     col.innerHTML=`<div class="week-bar-wrap"><div class="week-bar-label">${v>0?'$'+fmt(v):''}</div><div class="week-bar" style="height:${Math.max(h,4)}px"></div></div>`;
     wb.appendChild(col);
     const fc=document.createElement('div'); fc.className='week-foot-col';
-    fc.innerHTML=`<div class="week-foot-label" data-week="${i}" style="color:var(--text3);font-weight:400">S${i+1}</div>`;
+    fc.innerHTML=`<div class="week-foot-label" data-week="${i}" style="color:var(--text3);font-weight:400">${WEEK_LABELS[i]}</div>`;
     wf.appendChild(fc);
   });
 
@@ -1824,16 +1834,16 @@ function fmtCompact(n) {
   return '$' + fmt(n);
 }
 
+// Reportes — todas las funciones filtran SOLO gastos de Choni con imp > 0
 function getMesTotals(mes) {
-  const rows = (DATA_BY_MES[mes] || []).filter(r => r.quien === 'Choni');
-  return rows.reduce((s,r) => s + (r.imp > 0 ? r.imp : 0), 0);
+  const rows = (DATA_BY_MES[mes] || []).filter(r => r.quien === 'Choni' && r.imp > 0);
+  return rows.reduce((s,r) => s + r.imp, 0);
 }
 
 function getMesByTarjeta(mes) {
-  const rows = (DATA_BY_MES[mes] || []).filter(r => r.quien === 'Choni');
+  const rows = (DATA_BY_MES[mes] || []).filter(r => r.quien === 'Choni' && r.imp > 0);
   const map = {};
   rows.forEach(r => {
-    if (r.imp <= 0) return;
     if (!map[r.tarjeta]) map[r.tarjeta] = 0;
     map[r.tarjeta] += r.imp;
   });
@@ -1841,10 +1851,9 @@ function getMesByTarjeta(mes) {
 }
 
 function getMesByCategoria(mes) {
-  const rows = (DATA_BY_MES[mes] || []).filter(r => r.quien === 'Choni');
+  const rows = (DATA_BY_MES[mes] || []).filter(r => r.quien === 'Choni' && r.imp > 0);
   const map = {};
   rows.forEach(r => {
-    if (r.imp <= 0) return;
     if (!map[r.cat]) map[r.cat] = 0;
     map[r.cat] += r.imp;
   });
@@ -2160,8 +2169,50 @@ function cerrarSesion() {
 }
 
 function iniciarApp() {
-  loadMes(currentMesIdx);
-  intentarProgramar();
+  // Cargar config dinámica del Sheet, luego arrancar
+  fetch(`${SCRIPT_URL}?action=getConfig&token=${ID_TOKEN}`)
+    .then(r => r.json())
+    .then(cfg => {
+      if (cfg.cats     && cfg.cats.length)     ALL_CATS     = cfg.cats;
+      if (cfg.tarjetas && cfg.tarjetas.length) ALL_TARJETAS = cfg.tarjetas;
+      if (cfg.personas && cfg.personas.length) ALL_PERSONAS = cfg.personas;
+      // Rebuild chips with fresh data
+      rebuildChips();
+    })
+    .catch(() => {}) // Si falla, usa los defaults hardcodeados
+    .finally(() => {
+      loadMes(currentMesIdx);
+      intentarProgramar();
+    });
+}
+
+function rebuildChips() {
+  ['catChips','cardChips','personChips'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '';
+  });
+  makeChips('catChips',    ALL_CATS);
+  makeChips('cardChips',   ALL_TARJETAS);
+  makeChips('personChips', ALL_PERSONAS);
+  // Rebuild filter chips too
+  ['fcCat','fcCard','fcPerson'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '';
+  });
+  makeFilterChips('fcCat',    ALL_CATS,     'cat');
+  makeFilterChips('fcCard',   ALL_TARJETAS, 'card');
+  makeFilterChips('fcPerson', ALL_PERSONAS, 'persona');
+  // Rebuild edit sheet selects
+  rebuildEditSelects();
+}
+
+function rebuildEditSelects() {
+  const catSel = document.getElementById('editCat');
+  const tarSel = document.getElementById('editTarjeta');
+  const perSel = document.getElementById('editPersona');
+  if (catSel) { catSel.innerHTML = ''; ALL_CATS.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;catSel.appendChild(o);}); }
+  if (tarSel) { tarSel.innerHTML = ''; ALL_TARJETAS.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;tarSel.appendChild(o);}); }
+  if (perSel) { perSel.innerHTML = ''; ALL_PERSONAS.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;perSel.appendChild(o);}); }
 }
 
 window.addEventListener('load', () => {
